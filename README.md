@@ -60,3 +60,7 @@ To run the unit tests for this project, use the command:
 # Contributing
 
 We welcome contributions from the team! If you would like to contribute to this repository, please read our [Contributing Guide](./CONTRIBUTING.md) for our full workflow and standards.
+
+## 📝 License
+
+This repository is licensed under the [MIT License](./LICENSE).

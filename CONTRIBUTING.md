@@ -1,4 +1,4 @@
-# Contributing to the Plant Diagnosis Backend
+# 🌱 Contributing to the Plant Diagnosis Backend
 
 Welcome, and thank you for considering contributing to the Plant Diagnosis Backend! Your help is greatly appreciated. Before you begin, please read through this document to understand our development process and guidelines.
 

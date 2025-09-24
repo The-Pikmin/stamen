@@ -3,10 +3,7 @@
 <h1>Stamen - Plant Disease Diagnosis Backend</h1>
 </div>
 
-```
-[!NOTE]
-This is the backend application for the senior design project, "A07 - Computer Vision System for Plant Disease Diagnosis".
-```
+```[!NOTE] This is the backend application for the senior design project, "A07 - Computer Vision System for Plant Disease Diagnosis".```
 
 # Introduction
 

@@ -1,51 +1,62 @@
-# Stamen - Backend for SD1 Project
+<div align="center">
+<img width="125" height="125" src="https://emojicdn.elk.sh/⚙️?style=twitter"/>
+<h1>Stamen - Plant Disease Diagnosis Backend</h1>
+</div>
 
-## Getting Started
+[!NOTE]
+This is the backend application for the senior design project, "A07 - Computer Vision System for Plant Disease Diagnosis".
 
-### Prerequisites
+# Introduction
 
-- Python 3.x
-- pip
+Welcome to the backend for the Plant Disease Diagnosis application! This is a Flask application that serves a REST API to the frontend. It handles image uploads, processes them with a machine learning model, and returns a diagnosis.
 
-### Installation
+# Setup
 
-1. Clone the repository:
-   ```sh
-   git clone <repository-url>
-   ```
-2. Navigate to the project directory:
-   ```sh
-   cd stem-connect-backend-template
-   ```
-3. Create a virtual environment:
-   ```sh
-   python3 -m venv venv
-   ```
-4. Activate the virtual environment:
-   - On macOS and Linux:
-     ```sh
-     source venv/bin/activate
-     ```
-   - On Windows:
-     ```sh
-     .\venv\Scripts\activate
-     ```
-5. Install the dependencies:
-   ```sh
-   pip install -r requirements.txt
-   ```
+1. Install [Python](https://www.python.org/downloads/) (v3.10 or higher).
 
-### Development
+2. Clone this repository to your local machine.
 
-To start the development server, run:
+3. Navigate to the root directory of the repository.
 
-```sh
-python app.py
+4. Create and activate a virtual environment:
+
+```
+# Create the virtual environment
+python -m venv venv
+
+# Activate it (macOS/Linux)
+source venv/bin/activate
+
+# Activate it (Windows)
+.\venv\Scripts\activate
 ```
 
-This will start the Flask development server and you can access the API at `http://127.0.0.1:5000`.
+5. Install all project dependencies with `pip install -r requirements-dev.txt`.
 
-### API Endpoints
+## Environment Variables
 
-- `GET /`: Returns a simple "Hello" message.
-- `GET /api/message`: Returns a JSON object with a message.
+Create a `.env` file in the root of the repository by copying the example file:
+
+```
+cp .env.example .env
+```
+
+This file will be used for any secret keys or configuration variables needed for the application.
+
+# Development
+
+To start the local Flask development server, run the following command. This will typically launch the application on `http://127.0.0.1:5000`.
+
+```
+flask run
+```
+
+# Running Tests
+
+To run the unit tests for this project, use the command:
+
+`pytest`
+
+# Contributing
+
+We welcome contributions from the team! If you would like to contribute to this repository, please read our [Contributing Guide](./CONTRIBUTING.md) for our full workflow and standards.

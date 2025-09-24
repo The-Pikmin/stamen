@@ -49,7 +49,7 @@ In your pull request, it's important to provide a detailed test plan.
 
 For all backend changes, please outline the steps you took to test your changes. This could include new or updated unit tests, or manual testing with tools like Postman or cURL.
 
-Ensure all new endpoints and logic are covered by unit tests. You can run the full test suite with pytest.
+Ensure all new endpoints and logic are covered by unit tests. You can run the full test suite with `pytest`.
 
 # Git Workflow
 

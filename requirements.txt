@@ -1,6 +1,8 @@
-# Web Server
-Flask
+Flask~=3.1.2
 Flask-CORS
 gunicorn
-
-
+kaggle
+pillow
+django~=5.2.7
+djangorestframework~=3.16.1
+django-filter~=25.2

@@ -19,7 +19,7 @@ class Dataset(models.Model):
     def __str__(self):
         return self.name
 
-
+# lookup table of plant types
 class PlantSpecies(models.Model):
     # again more fields can be added as needed this is a basic structure
     name = models.CharField(max_length=100, unique=True)
@@ -32,7 +32,7 @@ class PlantSpecies(models.Model):
     def __str__(self):
         return self.name
 
-
+# lookup table of disease types
 class DiseaseCategory(models.Model):
     # as above
     name = models.CharField(max_length=150, unique=True)

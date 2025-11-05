@@ -3,14 +3,12 @@
 <h1>Stamen - Plant Disease Diagnosis Backend</h1>
 </div>
 
-```
 [!NOTE] This is the backend application for the senior design project:
 "A07 - Computer Vision System for Plant Disease Diagnosis".
-```
 
 # Introduction
 
-Welcome to the backend for the Plant Disease Diagnosis application! This is a Flask application that serves a REST API to the frontend. It handles image uploads, processes them with a machine learning model, and returns a diagnosis.
+Welcome to the backend for the Plant Disease Diagnosis application! This is a Django application that serves a REST API to the frontend. It handles image uploads, processes them with a machine learning model, and returns a diagnosis.
 
 # Setup
 
@@ -21,7 +19,6 @@ Welcome to the backend for the Plant Disease Diagnosis application! This is a Fl
 3. Navigate to the root directory of the repository.
 
 4. Create and activate a virtual environment:
-
 ```
 # Create the virtual environment
 python -m venv venv
@@ -33,12 +30,11 @@ source venv/bin/activate
 .\venv\Scripts\activate
 ```
 
-5. Install all project dependencies with `pip install -r requirements-dev.txt`.
+5. Install all project dependencies with `pip install -r requirements.txt`.
 
 ## Environment Variables
 
 Create a `.env` file in the root of the repository by copying the example file:
-
 ```
 cp .env.example .env
 ```
@@ -47,17 +43,17 @@ This file will be used for any secret keys or configuration variables needed for
 
 # Development
 
-To start the local Flask development server, run the following command. This will typically launch the application on `http://127.0.0.1:5000`.
-
+To start the local Django development server, run the following command. This will typically launch the application on `http://127.0.0.1:8000`.
 ```
-flask run
+python manage.py runserver
 ```
 
 # Running Tests
 
 To run the unit tests for this project, use the command:
-
-`pytest`
+```
+pytest
+```
 
 # Contributing
 

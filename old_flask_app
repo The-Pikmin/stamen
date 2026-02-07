@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from django.apps import AppConfig
 import cv2 # image handling 
 import numpy as np # array / numerical operations
 import tensorflow as tf # ML model handling
@@ -63,6 +64,13 @@ def predict():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+class UsersConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'users'
+
+    def ready(self):
+        import users.signals
 
 if __name__ == "__main__":
     app.run(debug=True)

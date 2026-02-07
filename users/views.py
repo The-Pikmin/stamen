@@ -5,8 +5,82 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
+from django.conf import settings
 from .serializers import UserSerializer, RegisterSerializer
+from .models import PlantImage
+from .serializers import PlantImageSerializer
+from .services import upload_plant_image, delete_plant_image
+import cv2  # image handling
+import numpy as np  # array / numerical operations
+import tensorflow as tf  # ML model handling
+import json
+import os
 
+# Load the trained model (I have copied model.keras into the same directory as the stamen branch for testing)
+MODEL_PATH = os.path.join(settings.BASE_DIR, "model.keras")
+model = tf.keras.models.load_model(MODEL_PATH)
+
+# Define class names that the model will be able to return, I have just copied the base metadata file for testing
+# Load class names
+CLASS_NAMES_PATH = os.path.join(settings.BASE_DIR, "class_names.json")
+with open(CLASS_NAMES_PATH, "r") as f:
+    class_names = json.load(f)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def home(request):
+    return Response("Hello, this is the backend server!")
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_message(request):
+    # message = {"message": "This is a message from the backend."}
+    return Response({"message": "This is a message from the backend."})
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])  # Change to [IsAuthenticated] if needed
+def predict(request):
+    # Takes an image to predict from the frontend
+    # and returns the prediction to the frontend
+    
+    if 'image' not in request.FILES:
+        return Response(
+            {"error": "No image provided"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        image_file = request.FILES['image']
+        
+        # Read image from request
+        file_bytes = np.frombuffer(image_file.read(), np.uint8)
+        img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+        
+        # Preprocess the image (adjust based on your model's requirements)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = cv2.resize(img, (224, 224))  # Resize to model's expected input size
+        img_array = img / 255.0  # Normalize
+        img_array = np.expand_dims(img_array, axis=0)
+
+        # Predict
+        predictions = model.predict(img_array)
+        predicted_class = class_names[np.argmax(predictions[0])]
+
+        return Response({
+            "prediction": predicted_class,
+            "confidence": float(np.max(predictions[0])),
+            "class_probabilities": predictions[0].tolist()
+        })
+
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    
 # Expected JSON:
 # {
 #     "username": "john_doe",

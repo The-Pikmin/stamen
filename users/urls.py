@@ -7,6 +7,10 @@ from .views import (
     register,
     login,
     get_current_user,
+    upload_image,
+    # Add these once created in views
+    # list_images,
+    # image_detail,
 )
 
 urlpatterns = [
@@ -23,10 +27,9 @@ urlpatterns = [
     # JWT token refresh endpoint
     path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     
-    # Image routes
-    path('images/', list_images, name='list_images'),
     path('images/upload/', upload_image, name='upload_image'),
-    path('images/<int:image_id>/', image_detail, name='image_detail'),
-    
-    # Add Google OAuth endpoints here
+
+    # Image routes (uncomment once views are created)
+    # path('images/', list_images, name='list_images'),
+    # path('images/<int:image_id>/', image_detail, name='image_detail'),
 ]

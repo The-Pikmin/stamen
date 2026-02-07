@@ -8,8 +8,8 @@ from django.contrib.auth import authenticate
 from django.conf import settings
 from .serializers import UserSerializer, RegisterSerializer
 from .models import PlantImage
-from .serializers import PlantImageSerializer
-from .services import upload_plant_image, delete_plant_image
+from .serializers import UserSerializer, RegisterSerializer, PlantImageSerializer
+from .services import upload_plant_image
 import cv2  # image handling
 import numpy as np  # array / numerical operations
 import tensorflow as tf  # ML model handling
@@ -143,3 +143,29 @@ def get_tokens_for_user(user):
         'refresh': str(refresh),
         'access': str(refresh.access_token),
     }
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_image(request):
+    # Upload a plant image. EXIF data is stripped automatically.
+    if 'image' not in request.FILES:
+        return Response(
+            {"error": "No image provided"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    image_file = request.FILES['image']
+    
+    try:
+        plant_image = upload_plant_image(
+            user=request.user,
+            image_file=image_file,
+            original_filename=image_file.name
+        )
+        serializer = PlantImageSerializer(plant_image)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

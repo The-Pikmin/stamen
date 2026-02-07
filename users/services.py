@@ -2,11 +2,11 @@ from PIL import Image
 from io import BytesIO
 import uuid
 from django.conf import settings
-from .supabase_client import get_supabase_client
+from .supabase import get_supabase_client
 from .models import PlantImage, UserProfile
 
 
-def create_supabase_user(email: str, password: str) -> str:
+def create_supabase_user(email: str) -> str:
     # Creates a user in Supabase Auth.
     # Returns the Supabase UUID.
     client = get_supabase_client()

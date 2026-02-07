@@ -13,9 +13,12 @@ class RegisterSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True, min_length=8)
 
 class PlantImageSerializer(serializers.ModelSerializer):
-    model = PlantImage
-    fields = ['id', 'supabase_path', 'uploaded_at', 'url']
-    read_only_fields = ['id', 'supabase_path', 'uploaded_at', 'url']
+    url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PlantImage
+        fields = ['id', 'supabase_path', 'uploaded_at', 'url']
+        read_only_fields = ['id', 'supabase_path', 'uploaded_at', 'url']
 
     def get_url(self, obj):
         from .services import get_image_url

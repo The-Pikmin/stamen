@@ -20,8 +20,13 @@ gunicorn
 # Supabase client for Python
 supabase
 
-# for image processing
+# Image processing
 Pillow
+opencv-python
+
+# ML model
+tensorflow
+numpy
 
 # use later for google oauth
 # django-allauth~=0.57.0

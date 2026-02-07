@@ -17,5 +17,11 @@ python-decouple~=3.8
 # For production deployment
 gunicorn
 
+# Supabase client for Python
+supabase
+
+# for image processing
+Pillow
+
 # use later for google oauth
 # django-allauth~=0.57.0

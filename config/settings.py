@@ -164,3 +164,8 @@ CORS_ALLOW_CREDENTIALS = True
 #         }
 #     }
 # }
+
+# Supabase Configuration
+SUPABASE_URL = config('SUPABASE_URL', default='')
+SUPABASE_KEY = config('SUPABASE_SERVICE_KEY', default='')
+SUPABASE_BUCKET = config('SUPABASE_BUCKET', default='plant-images')

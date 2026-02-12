@@ -55,11 +55,11 @@ def predict(request):
     try:
         image_file = request.FILES['image']
         
-        # Read image from request
+        # Read image with OpenCV
         file_bytes = np.frombuffer(image_file.read(), np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
         
-        # Preprocess the image (adjust based on your model's requirements)
+        # Convert BGR to RGB (OpenCV uses BGR by default)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img = cv2.resize(img, (224, 224))  # Resize to model's expected input size
         img_array = img / 255.0  # Normalize

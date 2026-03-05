@@ -9,22 +9,23 @@ from django.conf import settings
 from .serializers import UserSerializer, RegisterSerializer
 from .models import PlantImage
 from .serializers import UserSerializer, RegisterSerializer, PlantImageSerializer
-from .services import upload_plant_image
-import cv2  # image handling
-import numpy as np  # array / numerical operations
-import tensorflow as tf  # ML model handling
-import json
-import os
+from .services import upload_plant_image, get_image_url, call_inference
+# import cv2  # image handling
+# import numpy as np  # array / numerical operations
+# import tensorflow as tf  # ML model handling
+# import json
+# import os
 
+# Local model loading (commented out - now using Cloud Run)
 # Load the trained model (I have copied model.keras into the same directory as the stamen branch for testing)
-MODEL_PATH = os.path.join(settings.BASE_DIR, "model.keras")
-model = tf.keras.models.load_model(MODEL_PATH)
+# MODEL_PATH = os.path.join(settings.BASE_DIR, "model.keras")
+# model = tf.keras.models.load_model(MODEL_PATH)
 
 # Define class names that the model will be able to return, I have just copied the base metadata file for testing
 # Load class names
-CLASS_NAMES_PATH = os.path.join(settings.BASE_DIR, "class_names.json")
-with open(CLASS_NAMES_PATH, "r") as f:
-    class_names = json.load(f)
+# CLASS_NAMES_PATH = os.path.join(settings.BASE_DIR, "class_names.json")
+# with open(CLASS_NAMES_PATH, "r") as f:
+#     class_names = json.load(f)
 
 
 @api_view(['GET'])
@@ -41,43 +42,35 @@ def get_message(request):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])  # Change to [IsAuthenticated] if needed
+@permission_classes([IsAuthenticated])
 def predict(request):
-    # Takes an image to predict from the frontend
-    # and returns the prediction to the frontend
-    
-    if 'image' not in request.FILES:
+    """
+    Predict plant species using the Cloud Run inference service.
+    Expects JSON: {"image_url": "https://<project>.supabase.co/storage/..."}
+    """
+    image_url = request.data.get('image_url')
+    if not image_url:
         return Response(
-            {"error": "No image provided"},
+            {"error": "image_url is required"},
             status=status.HTTP_400_BAD_REQUEST
         )
 
     try:
-        image_file = request.FILES['image']
-        
-        # Read image with OpenCV
-        file_bytes = np.frombuffer(image_file.read(), np.uint8)
-        img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-        
-        # Convert BGR to RGB (OpenCV uses BGR by default)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img = cv2.resize(img, (224, 224))  # Resize to model's expected input size
-        img_array = img / 255.0  # Normalize
-        img_array = np.expand_dims(img_array, axis=0)
-
-        # Predict
-        predictions = model.predict(img_array)
-        predicted_class = class_names[np.argmax(predictions[0])]
-
-        return Response({
-            "prediction": predicted_class,
-            "confidence": float(np.max(predictions[0])),
-            "class_probabilities": predictions[0].tolist()
-        })
-
-    except Exception as e:
+        result = call_inference(image_url)
+        return Response(result, status=status.HTTP_200_OK)
+    except ValueError as e:
         return Response(
             {"error": str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        if settings.DEBUG:
+            return Response(
+                {"error": f"Inference failed: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        return Response(
+            {"error": "Inference service unavailable"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
     
@@ -165,7 +158,12 @@ def upload_image(request):
         serializer = PlantImageSerializer(plant_image)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     except Exception as e:
+        if settings.DEBUG:
+            return Response(
+                {"error": f"Upload failed: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
         return Response(
-            {"error": str(e)},
+            {"error": "Image upload failed"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

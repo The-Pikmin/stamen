@@ -42,3 +42,6 @@ Thumbs.db
 __pycache__/
 *.pyc
 .env
+
+
+django-invoker-key.json

@@ -1,16 +1,14 @@
 from pathlib import Path
 import os
+import sys
 from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY WARNING: keep the secret key used in production secret!
 # Get from .env file
 SECRET_KEY = config('SECRET_KEY')
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=True, cast=bool)
+DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
 
@@ -80,6 +78,15 @@ DATABASES = {
     }
 }
 
+# Use SQLite for testing
+if 'test' in sys.argv:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'test_db.sqlite3',
+        }
+    }
+
 # For SQLite in development, use this instead:
 # DATABASES = {
 #     'default': {
@@ -148,6 +155,19 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
+# Supabase settings
+SUPABASE_URL = config('SUPABASE_URL', default='')
+SUPABASE_KEY = config('SUPABASE_KEY', default='')
+SUPABASE_BUCKET = config('SUPABASE_BUCKET', default='plant-images')
+
+# Cloud Run inference service
+CLOUD_RUN_URL = config('CLOUD_RUN_URL', default='')
+
+# Setting as an OS env var so google-auth can find it
+_gac = config('GOOGLE_APPLICATION_CREDENTIALS', default='')
+if _gac:
+    os.environ.setdefault('GOOGLE_APPLICATION_CREDENTIALS', _gac)
+
 # For Google OAuth later, uncomment these:
 # SOCIALACCOUNT_PROVIDERS = {
 #     'google': {
@@ -165,7 +185,6 @@ CORS_ALLOW_CREDENTIALS = True
 #     }
 # }
 
-# Supabase Configuration
-SUPABASE_URL = config('SUPABASE_URL', default='')
-SUPABASE_KEY = config('SUPABASE_SERVICE_KEY', default='')
-SUPABASE_BUCKET = config('SUPABASE_BUCKET', default='plant-images')
+# Upload limits
+MAX_IMAGE_SIZE_MB = config('MAX_IMAGE_SIZE_MB', default=10, cast=int)
+DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_IMAGE_SIZE_MB * 1024 * 1024  # Django upload limit

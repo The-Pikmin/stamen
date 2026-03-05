@@ -25,8 +25,12 @@ Pillow
 opencv-python
 
 # ML model
-tensorflow
-numpy
+# tensorflow
+# numpy
+
+# Google Cloud Authentication
+google-auth
+requests
 
 # use later for google oauth
 # django-allauth~=0.57.0

@@ -84,7 +84,11 @@ def predict(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])  # Anyone can register
 def register(request):
-    serializer = RegisterSerializer(data=request.data)
+    data = request.data.copy()
+    if 'name' in data and 'username' not in data:
+        data['username'] = data['name']
+
+    serializer = RegisterSerializer(data=data)
     if serializer.is_valid():
         username = serializer.validated_data['username']
         email = serializer.validated_data['email']
@@ -100,14 +104,25 @@ def register(request):
 
 # Expected JSON:
 # {
-#     "username": "john_doe",
+#     "email": "john@example.com",
 #     "password": "password123"
 # }
+# Also accepts {"username": "john_doe", "password": "..."} for backward compat
 @api_view(['POST'])
 @permission_classes([AllowAny])  # Anyone can login
 def login(request):
     username = request.data.get('username')
+    email = request.data.get('email')
     password = request.data.get('password')
+
+    # If email provided instead of username, look up the user by email
+    if not username and email:
+        try:
+            user_obj = User.objects.get(email=email)
+            username = user_obj.username
+        except User.DoesNotExist:
+            return Response({"error": "Invalid credentials."}, status=status.HTTP_401_UNAUTHORIZED)
+
     user = authenticate(request, username=username, password=password)
     if user is not None:
         tokens = get_tokens_for_user(user)

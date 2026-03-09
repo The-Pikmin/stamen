@@ -4,6 +4,7 @@ Mocks Cloud Run so you can test locally without credentials.
 
 Run with: python manage.py test users
 """
+
 from unittest.mock import patch, MagicMock
 
 from django.test import TestCase, override_settings
@@ -12,7 +13,6 @@ from rest_framework.test import APIClient
 from rest_framework import status
 
 from users.services import validate_supabase_url
-
 
 MOCK_CLOUD_RUN_URL = "https://lotus-model-test-uc.a.run.app"
 

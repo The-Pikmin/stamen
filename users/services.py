@@ -7,18 +7,8 @@ import google.auth.transport.requests
 import google.oauth2.id_token
 from django.conf import settings
 from .supabase import get_supabase_client
-from .models import PlantImage, UserProfile
+from .models import PlantImage
 
-
-def create_supabase_user(email: str) -> str:
-    # Creates a user in Supabase Auth.
-    # Returns the Supabase UUID.
-    client = get_supabase_client()
-    response = client.auth.admin.create_user({
-        "email": email,
-        "email_confirm": True
-    })
-    return response.user.id
 
 # Removes all EXIF metadata (including GPS location) from img
 def strip_exif(image_file) -> BytesIO:

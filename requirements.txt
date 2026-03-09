@@ -5,8 +5,8 @@ djangorestframework~=3.16.1
 # PostgreSQL database adapter
 psycopg2-binary~=2.9.9
 
-# Authentication
-djangorestframework-simplejwt~=5.3.0
+# Authentication (Supabase JWT verification)
+PyJWT[crypto]~=2.9.0
 
 # CORS for frontend communication
 django-cors-headers~=4.3.0

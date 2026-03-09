@@ -28,12 +28,7 @@ INSTALLED_APPS = [
     
     # Third party apps
     'rest_framework',
-    'rest_framework_simplejwt',
     'corsheaders',
-    # 'allauth',  # Add when implementing Google OAuth
-    # 'allauth.account',
-    # 'allauth.socialaccount',
-    # 'allauth.socialaccount.providers.google',
     
     # our apps
     'users',
@@ -141,23 +136,14 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Django REST Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'users.authentication.SupabaseJWTAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticatedOrReadOnly',
     ],
 }
 
-# JWT Settings
-from datetime import timedelta
-
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),  # Access token valid for 1 hour
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     # Refresh token valid for 7 days
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
-    'AUTH_HEADER_TYPES': ('Bearer',),
-}
+# Supabase Auth — JWKS-based token verification (uses SUPABASE_URL below)
 
 # CORS settings - allow your frontend to make requests
 if DEBUG:
@@ -184,22 +170,6 @@ _gac = config('GOOGLE_APPLICATION_CREDENTIALS', default='')
 if _gac:
     os.environ.setdefault('GOOGLE_APPLICATION_CREDENTIALS', _gac)
 
-# For Google OAuth later, uncomment these:
-# SOCIALACCOUNT_PROVIDERS = {
-#     'google': {
-#         'APP': {
-#             'client_id': config('GOOGLE_CLIENT_ID', default=''),
-#             'secret': config('GOOGLE_CLIENT_SECRET', default=''),
-#         },
-#         'SCOPE': [
-#             'profile',
-#             'email',
-#         ],
-#         'AUTH_PARAMS': {
-#             'access_type': 'online',
-#         }
-#     }
-# }
 
 # Upload limits
 MAX_IMAGE_SIZE_MB = config('MAX_IMAGE_SIZE_MB', default=10, cast=int)

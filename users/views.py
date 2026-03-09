@@ -2,30 +2,10 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth.models import User
-from django.contrib.auth import authenticate
 from django.conf import settings
-from .serializers import UserSerializer, RegisterSerializer
 from .models import PlantImage
-from .serializers import UserSerializer, RegisterSerializer, PlantImageSerializer
-from .services import upload_plant_image, get_image_url, call_inference
-# import cv2  # image handling
-# import numpy as np  # array / numerical operations
-# import tensorflow as tf  # ML model handling
-# import json
-# import os
-
-# Local model loading (commented out - now using Cloud Run)
-# Load the trained model (I have copied model.keras into the same directory as the stamen branch for testing)
-# MODEL_PATH = os.path.join(settings.BASE_DIR, "model.keras")
-# model = tf.keras.models.load_model(MODEL_PATH)
-
-# Define class names that the model will be able to return, I have just copied the base metadata file for testing
-# Load class names
-# CLASS_NAMES_PATH = os.path.join(settings.BASE_DIR, "class_names.json")
-# with open(CLASS_NAMES_PATH, "r") as f:
-#     class_names = json.load(f)
+from .serializers import PlantImageSerializer
+from .services import upload_plant_image, call_inference
 
 
 @api_view(['GET'])
@@ -37,7 +17,6 @@ def home(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_message(request):
-    # message = {"message": "This is a message from the backend."}
     return Response({"message": "This is a message from the backend."})
 
 
@@ -73,97 +52,59 @@ def predict(request):
             {"error": "Inference service unavailable"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-    
-# Expected JSON:
-# {
-#     "username": "john_doe",
-#     "email": "john@example.com",
-#     "password": "securepassword123"
-# }
-
-@api_view(['POST'])
-@permission_classes([AllowAny])  # Anyone can register
-def register(request):
-    data = request.data.copy()
-    if 'name' in data and 'username' not in data:
-        data['username'] = data['name']
-
-    serializer = RegisterSerializer(data=data)
-    if serializer.is_valid():
-        username = serializer.validated_data['username']
-        email = serializer.validated_data['email']
-        password = serializer.validated_data['password']
-        if User.objects.filter(username=username).exists() or User.objects.filter(email=email).exists():
-            return Response({"error": "Username or email already exists."}, status=status.HTTP_400_BAD_REQUEST)
-        user = User.objects.create_user(username=username, email=email, password=password)
-        tokens = get_tokens_for_user(user)
-        return Response(tokens, status=status.HTTP_201_CREATED)
-    else:
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-
-# Expected JSON:
-# {
-#     "email": "john@example.com",
-#     "password": "password123"
-# }
-# Also accepts {"username": "john_doe", "password": "..."} for backward compat
-@api_view(['POST'])
-@permission_classes([AllowAny])  # Anyone can login
-def login(request):
-    username = request.data.get('username')
-    email = request.data.get('email')
-    password = request.data.get('password')
-
-    # If email provided instead of username, look up the user by email
-    if not username and email:
-        try:
-            user_obj = User.objects.get(email=email)
-            username = user_obj.username
-        except User.DoesNotExist:
-            return Response({"error": "Invalid credentials."}, status=status.HTTP_401_UNAUTHORIZED)
-
-    user = authenticate(request, username=username, password=password)
-    if user is not None:
-        tokens = get_tokens_for_user(user)
-        return Response(tokens, status=status.HTTP_200_OK)
-    else:
-        return Response({"error": "Invalid credentials."}, status=status.HTTP_401_UNAUTHORIZED)
 
 
-# Get current user's profile info
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])  # Must be logged in
+@permission_classes([IsAuthenticated])
 def get_current_user(request):
     user = request.user
     user_data = {
-        "id": user.id,
+        "id": request.auth.get('sub'),
         "username": user.username,
         "email": user.email,
     }
     return Response(user_data, status=status.HTTP_200_OK)
 
 
-# Helper function to generate tokens
-def get_tokens_for_user(user):
-    refresh = RefreshToken.for_user(user)
-    return {
-        'refresh': str(refresh),
-        'access': str(refresh.access_token),
-    }
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_profile(request):
+    """Update the current user's profile (e.g. username)."""
+    username = request.data.get('username')
+    if not username:
+        return Response(
+            {"error": "username is required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    from django.contrib.auth.models import User
+    if User.objects.filter(username=username).exclude(pk=request.user.pk).exists():
+        return Response(
+            {"error": "Username already taken"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    request.user.username = username
+    request.user.save(update_fields=['username'])
+
+    return Response({
+        "id": request.auth.get('sub'),
+        "username": request.user.username,
+        "email": request.user.email,
+    }, status=status.HTTP_200_OK)
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def upload_image(request):
-    # Upload a plant image. EXIF data is stripped automatically.
     if 'image' not in request.FILES:
         return Response(
             {"error": "No image provided"},
             status=status.HTTP_400_BAD_REQUEST
         )
-    
+
     image_file = request.FILES['image']
-    
+
     try:
         plant_image = upload_plant_image(
             user=request.user,

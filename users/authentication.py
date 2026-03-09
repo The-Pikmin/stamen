@@ -25,44 +25,44 @@ class SupabaseJWTAuthentication(BaseAuthentication):
     """
 
     def authenticate_header(self, request):
-        return 'Bearer'
+        return "Bearer"
 
     def authenticate(self, request):
-        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
-        if not auth_header.startswith('Bearer '):
+        auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+        if not auth_header.startswith("Bearer "):
             return None
 
         token = auth_header[7:]
 
         if not settings.SUPABASE_URL:
-            raise AuthenticationFailed('SUPABASE_URL is not configured')
+            raise AuthenticationFailed("SUPABASE_URL is not configured")
 
         try:
             signing_key = _get_jwks_client().get_signing_key_from_jwt(token)
             payload = jwt.decode(
                 token,
                 signing_key.key,
-                algorithms=['RS256', 'ES256'],
-                audience='authenticated',
+                algorithms=["RS256", "ES256"],
+                audience="authenticated",
             )
         except jwt.ExpiredSignatureError:
-            raise AuthenticationFailed('Token has expired')
+            raise AuthenticationFailed("Token has expired")
         except jwt.InvalidTokenError:
-            raise AuthenticationFailed('Invalid token')
+            raise AuthenticationFailed("Invalid token")
 
-        supabase_uid = payload.get('sub')
+        supabase_uid = payload.get("sub")
         if not supabase_uid:
-            raise AuthenticationFailed('Token missing sub claim')
+            raise AuthenticationFailed("Token missing sub claim")
 
-        email = payload.get('email', '')
-        user_metadata = payload.get('user_metadata', {})
+        email = payload.get("email", "")
+        user_metadata = payload.get("user_metadata", {})
 
         user = self._get_or_create_user(supabase_uid, email, user_metadata)
         return (user, payload)
 
     def _get_or_create_user(self, supabase_uid, email, user_metadata):
         try:
-            profile = UserProfile.objects.select_related('user').get(
+            profile = UserProfile.objects.select_related("user").get(
                 supabase_uid=supabase_uid
             )
             return profile.user
@@ -71,9 +71,9 @@ class SupabaseJWTAuthentication(BaseAuthentication):
 
         # Auto-provision: derive username from metadata or email
         username = (
-            user_metadata.get('username')
-            or user_metadata.get('full_name', '').replace(' ', '_').lower()
-            or email.split('@')[0]
+            user_metadata.get("username")
+            or user_metadata.get("full_name", "").replace(" ", "_").lower()
+            or email.split("@")[0]
             or supabase_uid[:8]
         )
 
@@ -81,7 +81,7 @@ class SupabaseJWTAuthentication(BaseAuthentication):
         base_username = username
         counter = 1
         while User.objects.filter(username=username).exists():
-            username = f'{base_username}_{counter}'
+            username = f"{base_username}_{counter}"
             counter += 1
 
         user = User.objects.create_user(

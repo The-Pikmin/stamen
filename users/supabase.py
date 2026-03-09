@@ -7,5 +7,5 @@ def get_supabase_client() -> Client:
     # Uses the service role key for server-side ops
     if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
         raise ValueError("Supabase credentials not configured")
-    
+
     return create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)

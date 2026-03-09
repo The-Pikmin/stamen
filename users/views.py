@@ -3,7 +3,6 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django.conf import settings
-from .models import PlantImage
 from .serializers import PlantImageSerializer
 from .services import upload_plant_image, call_inference
 

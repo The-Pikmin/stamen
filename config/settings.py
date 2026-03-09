@@ -66,7 +66,8 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-# If DATABASE_URL is set (e.g. on Render), use it. Otherwise fall back to individual DB_* vars.
+# If DATABASE_URL is set (e.g. on Render), use it.
+# Otherwise fall back to individual DB_* vars.
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -99,7 +100,8 @@ if "test" in sys.argv:
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        "NAME": "django.contrib.auth.password_validation."
+        "UserAttributeSimilarityValidator",
     },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",

@@ -1,7 +1,8 @@
 from django.contrib.auth.models import User
 from django.db import models
 
-# for basic auth we dont need a custom user model yet but in future if needed we can extend it like this:
+# for basic auth we dont need a custom user model yet
+# but in future if needed we can extend it like this:
 # from django.contrib.auth.models import AbstractUser
 #
 # class CustomUser(AbstractUser):

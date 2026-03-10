@@ -9,6 +9,11 @@ on:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+    env:
+      SECRET_KEY: "ci-test-secret-key-not-for-production"
+      DB_NAME: "test"
+      DB_USER: "test"
+      DB_PASSWORD: "test"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

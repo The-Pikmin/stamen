@@ -79,8 +79,8 @@ DATABASES = {
     }
 }
 
-# Use SQLite for testing
-if "test" in sys.argv:
+# Use SQLite for testing (manage.py test or pytest)
+if "test" in sys.argv or "pytest" in sys.modules:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",

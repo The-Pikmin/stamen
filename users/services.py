@@ -85,7 +85,7 @@ def call_inference(image_url: str) -> dict:
         f"{settings.CLOUD_RUN_URL}/predict",
         json={"image_url": image_url},
         headers={"Authorization": f"Bearer {token}"},
-        timeout=30,
+        timeout=300,
     )
     response.raise_for_status()
     return response.json()

@@ -1,0 +1,768 @@
+[
+  {
+    "genus": "solanum",
+    "plants": [
+      "tomato",
+      "potato"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://edis.ifas.ufl.edu/publication/HS1189",
+          "https://gardening.cals.cornell.edu/home-gardening/vegetables/tomatoes/"
+        ]
+      },
+      {
+        "name": "Bacterial Spot",
+        "articles": [
+          "https://edis.ifas.ufl.edu/publication/PP359",
+          "https://extension.psu.edu/bacterial-spot-on-tomatoes"
+        ]
+      },
+      {
+        "name": "Early Blight",
+        "articles": [
+          "https://blogs.cornell.edu/livegpath/gallery/tomato/early-blight/",
+          "https://extension.umn.edu/diseases/early-blight-tomato"
+        ]
+      },
+      {
+        "name": "Late Blight",
+        "articles": [
+          "https://www.ars.usda.gov/oc/utm/late-blight/",
+          "https://blogs.cornell.edu/livegpath/gallery/tomato/late-blight/"
+        ]
+      },
+      {
+        "name": "Leaf Blight",
+        "articles": [
+          "https://extension.umn.edu/diseases/early-blight-tomato"
+        ]
+      },
+      {
+        "name": "Leaf Curl",
+        "articles": [
+          "https://edis.ifas.ufl.edu/publication/IN716"
+        ]
+      },
+      {
+        "name": "Leaf Mold",
+        "articles": [
+          "https://blogs.cornell.edu/livegpath/gallery/tomato/leaf-mold/"
+        ]
+      },
+      {
+        "name": "Mosaic",
+        "articles": [
+          "https://extension.umn.edu/diseases/tomato-mosaic-virus"
+        ]
+      },
+      {
+        "name": "Septoria Leaf Spot",
+        "articles": [
+          "https://extension.umd.edu/resource/septoria-leaf-spot-tomatoes",
+          "https://blogs.cornell.edu/livegpath/gallery/tomato/septoria-leaf-spot/"
+        ]
+      },
+      {
+        "name": "Target Spot",
+        "articles": [
+          "https://edis.ifas.ufl.edu/publication/PP310"
+        ]
+      },
+      {
+        "name": "Verticillium Wilt",
+        "articles": [
+          "https://blogs.cornell.edu/livegpath/gallery/tomato/verticillium-wilt/"
+        ]
+      },
+      {
+        "name": "Yellow Leaf Curl",
+        "articles": [
+          "https://edis.ifas.ufl.edu/publication/IN716"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "malus",
+    "plants": [
+      "apple"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://extension.umn.edu/fruit/growing-apples",
+          "https://hgic.clemson.edu/factsheet/apple/"
+        ]
+      },
+      {
+        "name": "Apple Scab",
+        "articles": [
+          "https://extension.umn.edu/plant-diseases/apple-scab",
+          "https://blogs.cornell.edu/livegpath/gallery/apple/apple-scab/"
+        ]
+      },
+      {
+        "name": "Black Rot",
+        "articles": [
+          "https://extension.psu.edu/black-rot-on-apple",
+          "https://blogs.cornell.edu/livegpath/gallery/apple/black-rot/"
+        ]
+      },
+      {
+        "name": "Cedar Apple Rust",
+        "articles": [
+          "https://extension.umn.edu/plant-diseases/cedar-apple-rust",
+          "https://blogs.cornell.edu/livegpath/gallery/apple/cedar-apple-rust/"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "prunus",
+    "plants": [
+      "peach",
+      "cherry"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://hgic.clemson.edu/factsheet/peach/",
+          "https://extension.umn.edu/fruit/growing-stone-fruits-home-garden"
+        ]
+      },
+      {
+        "name": "Bacterial Spot",
+        "articles": [
+          "https://extension.psu.edu/bacterial-spot-of-peach",
+          "https://edis.ifas.ufl.edu/publication/PP268"
+        ]
+      },
+      {
+        "name": "Powdery Mildew",
+        "articles": [
+          "https://extension.umn.edu/plant-diseases/powdery-mildew-trees-and-shrubs",
+          "https://blogs.cornell.edu/livegpath/gallery/cherry/powdery-mildew/"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "capsicum",
+    "plants": [
+      "bell pepper"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://edis.ifas.ufl.edu/publication/HS979",
+          "https://extension.umn.edu/vegetables/growing-peppers"
+        ]
+      },
+      {
+        "name": "Bacterial Spot",
+        "articles": [
+          "https://edis.ifas.ufl.edu/publication/PP362",
+          "https://extension.psu.edu/bacterial-spot-on-peppers"
+        ]
+      },
+      {
+        "name": "Leaf Spot",
+        "articles": [
+          "https://extension.umn.edu/diseases/leaf-spot-vegetables"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "cucurbita",
+    "plants": [
+      "squash"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://edis.ifas.ufl.edu/publication/HS725",
+          "https://extension.umn.edu/vegetables/growing-squash"
+        ]
+      },
+      {
+        "name": "Powdery Mildew",
+        "articles": [
+          "https://extension.umn.edu/diseases/powdery-mildew-cucurbits",
+          "https://blogs.cornell.edu/livegpath/gallery/cucurbits/powdery-mildew/"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "fragaria",
+    "plants": [
+      "strawberry"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://edis.ifas.ufl.edu/publication/HS403",
+          "https://extension.umn.edu/fruit/growing-strawberries-home-garden"
+        ]
+      },
+      {
+        "name": "Leaf Scorch",
+        "articles": [
+          "https://extension.umn.edu/diseases/strawberry-leaf-scorch"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "zea",
+    "plants": [
+      "corn"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://extension.umn.edu/growing-corn/home-gardens",
+          "https://hgic.clemson.edu/factsheet/corn/"
+        ]
+      },
+      {
+        "name": "Cercospora (Gray Leaf Spot)",
+        "articles": [
+          "https://extension.umn.edu/diseases/gray-leaf-spot-corn",
+          "https://cropprotectionnetwork.org/resources/articles/diseases/gray-leaf-spot-of-corn"
+        ]
+      },
+      {
+        "name": "Common Rust",
+        "articles": [
+          "https://extension.umn.edu/diseases/common-rust-corn"
+        ]
+      },
+      {
+        "name": "Ear Rot",
+        "articles": [
+          "https://cropprotectionnetwork.org/resources/articles/diseases/ear-rots-of-corn"
+        ]
+      },
+      {
+        "name": "Leaf Blight",
+        "articles": [
+          "https://extension.umn.edu/diseases/northern-corn-leaf-blight"
+        ]
+      },
+      {
+        "name": "Northern Leaf Blight",
+        "articles": [
+          "https://extension.umn.edu/diseases/northern-corn-leaf-blight"
+        ]
+      },
+      {
+        "name": "Streak Virus",
+        "articles": [
+          "https://www.cimmyt.org/research/maize-diseases/maize-streak-virus/"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "triticum",
+    "plants": [
+      "wheat"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://extension.umn.edu/small-grains/wheat-production-basics"
+        ]
+      },
+      {
+        "name": "Black Rust",
+        "articles": [
+          "https://extension.umn.edu/diseases/stem-rust-wheat"
+        ]
+      },
+      {
+        "name": "Brown Leaf Rust",
+        "articles": [
+          "https://extension.umn.edu/diseases/leaf-rust-wheat"
+        ]
+      },
+      {
+        "name": "Flag Smut",
+        "articles": [
+          "https://www.apsnet.org/edcenter/disandpath/fungalasco/pdlessons/Pages/FlagSmut.aspx"
+        ]
+      },
+      {
+        "name": "Leaf Blight",
+        "articles": [
+          "https://extension.umn.edu/diseases/septoria-leaf-blotch-wheat"
+        ]
+      },
+      {
+        "name": "Powdery Mildew",
+        "articles": [
+          "https://extension.umn.edu/diseases/powdery-mildew-wheat"
+        ]
+      },
+      {
+        "name": "Scab",
+        "articles": [
+          "https://www.scabusa.org/about-head-scab"
+        ]
+      },
+      {
+        "name": "Yellow Rust",
+        "articles": [
+          "https://extension.umn.edu/diseases/stripe-rust-wheat"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "oryza",
+    "plants": [
+      "rice"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://www.irri.org/how-rice-grows"
+        ]
+      },
+      {
+        "name": "Bacterial Blight",
+        "articles": [
+          "https://www.knowledgebank.irri.org/training/fact-sheets/pest-management/diseases/item/bacterial-blight"
+        ]
+      },
+      {
+        "name": "Blast",
+        "articles": [
+          "https://www.knowledgebank.irri.org/training/fact-sheets/pest-management/diseases/item/rice-blast"
+        ]
+      },
+      {
+        "name": "Tungro",
+        "articles": [
+          "https://www.knowledgebank.irri.org/training/fact-sheets/pest-management/diseases/item/tungro"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "saccharum",
+    "plants": [
+      "sugarcane"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://edis.ifas.ufl.edu/publication/SC017"
+        ]
+      },
+      {
+        "name": "Mosaic",
+        "articles": [
+          "https://edis.ifas.ufl.edu/publication/PP113"
+        ]
+      },
+      {
+        "name": "Red Rot",
+        "articles": [
+          "https://www.cabi.org/isc/datasheet/12244"
+        ]
+      },
+      {
+        "name": "Red Rust",
+        "articles": [
+          "https://www.cabi.org/isc/datasheet/12244"
+        ]
+      },
+      {
+        "name": "Yellow Rust",
+        "articles": [
+          "https://www.cabi.org/isc/datasheet/12244"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "rosa",
+    "plants": [
+      "rose"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://extension.umn.edu/flowers/growing-roses",
+          "https://hgic.clemson.edu/factsheet/rose/"
+        ]
+      },
+      {
+        "name": "Fungal Leaf Spot",
+        "articles": [
+          "https://extension.umn.edu/plant-diseases/black-spot-rose"
+        ]
+      },
+      {
+        "name": "Nutrient Deficiency",
+        "articles": [
+          "https://hgic.clemson.edu/factsheet/rose-nutrient-deficiencies/"
+        ]
+      },
+      {
+        "name": "Pest Damage",
+        "articles": [
+          "https://extension.umn.edu/yard-and-garden-insects/insects-and-mites-roses"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "hibiscus",
+    "plants": [
+      "shoeblackplant"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://edis.ifas.ufl.edu/publication/FP251",
+          "https://hgic.clemson.edu/factsheet/hibiscus/"
+        ]
+      },
+      {
+        "name": "Bacterial Spot",
+        "articles": [
+          "https://edis.ifas.ufl.edu/publication/PP362"
+        ]
+      },
+      {
+        "name": "Nutrient Deficiency",
+        "articles": [
+          "https://hgic.clemson.edu/factsheet/hibiscus/"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "dracaena",
+    "plants": [
+      "snake plant"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://hgic.clemson.edu/factsheet/snake-plant/",
+          "https://extension.umn.edu/houseplants/snake-plant"
+        ]
+      },
+      {
+        "name": "Anthracnose",
+        "articles": [
+          "https://extension.umn.edu/diseases/anthracnose"
+        ]
+      },
+      {
+        "name": "Leaf Withering",
+        "articles": [
+          "https://extension.umn.edu/houseplants/snake-plant"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "chlorophytum",
+    "plants": [
+      "spider plant"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://hgic.clemson.edu/factsheet/spider-plant/",
+          "https://extension.umn.edu/houseplants/spider-plant"
+        ]
+      },
+      {
+        "name": "Fungal Leaf Spot",
+        "articles": [
+          "https://extension.umn.edu/diseases/leaf-spot-diseases-trees-and-shrubs"
+        ]
+      },
+      {
+        "name": "Leaf Tip Necrosis",
+        "articles": [
+          "https://extension.umn.edu/houseplants/spider-plant"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "epipremnum",
+    "plants": [
+      "money plant"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://hgic.clemson.edu/factsheet/pothos/",
+          "https://extension.umn.edu/houseplants/pothos"
+        ]
+      },
+      {
+        "name": "Bacterial Wilt Disease",
+        "articles": [
+          "https://edis.ifas.ufl.edu/publication/PP300"
+        ]
+      },
+      {
+        "name": "Manganese Toxicity",
+        "articles": [
+          "https://www.canr.msu.edu/resources/manganese_toxicity_in_plants"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "manihot",
+    "plants": [
+      "cassava"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://www.cabi.org/isc/datasheet/30022"
+        ]
+      },
+      {
+        "name": "Bacterial Blight",
+        "articles": [
+          "https://www.cabi.org/isc/datasheet/30021"
+        ]
+      },
+      {
+        "name": "Brown Spot",
+        "articles": [
+          "https://www.cabi.org/isc/datasheet/34509"
+        ]
+      },
+      {
+        "name": "Mosaic",
+        "articles": [
+          "https://www.cabi.org/isc/datasheet/11885"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "anacardium",
+    "plants": [
+      "cashew"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://www.cabi.org/isc/datasheet/7219"
+        ]
+      },
+      {
+        "name": "Anthracnose",
+        "articles": [
+          "https://www.cabi.org/isc/datasheet/4509"
+        ]
+      },
+      {
+        "name": "Gummosis",
+        "articles": [
+          "https://www.cabi.org/isc/datasheet/25165"
+        ]
+      },
+      {
+        "name": "Red Rust",
+        "articles": [
+          "https://www.cabi.org/isc/datasheet/4509"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "gossypium",
+    "plants": [
+      "cotton"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://extension.uga.edu/publications/detail.html?number=C934"
+        ]
+      },
+      {
+        "name": "Anthracnose",
+        "articles": [
+          "https://www.cabi.org/isc/datasheet/4509"
+        ]
+      },
+      {
+        "name": "Bacterial Blight",
+        "articles": [
+          "https://www.cabi.org/isc/datasheet/8798"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "vitis",
+    "plants": [
+      "grape"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://extension.umn.edu/fruit/growing-grapes-home-garden",
+          "https://hgic.clemson.edu/factsheet/grape/"
+        ]
+      },
+      {
+        "name": "Black Rot",
+        "articles": [
+          "https://extension.umn.edu/diseases/black-rot-grapes",
+          "https://blogs.cornell.edu/livegpath/gallery/grape/black-rot/"
+        ]
+      },
+      {
+        "name": "Esca (Black Measles)",
+        "articles": [
+          "https://www.cabi.org/isc/datasheet/20617"
+        ]
+      },
+      {
+        "name": "Leaf Blight (Isariopsis Leaf Spot)",
+        "articles": [
+          "https://blogs.cornell.edu/livegpath/gallery/grape/isariopsis-leaf-spot/"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "citrus",
+    "plants": [
+      "orange"
+    ],
+    "diseases": [
+      {
+        "name": "Huanglongbing (Citrus Greening)",
+        "articles": [
+          "https://edis.ifas.ufl.edu/publication/PP210",
+          "https://www.aphis.usda.gov/plant_health/plant_pest_info/citrus_greening/"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "tagetes",
+    "plants": [
+      "marigold"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://extension.umn.edu/flowers/growing-marigolds"
+        ]
+      },
+      {
+        "name": "Alternaria Leaf Blight",
+        "articles": [
+          "https://www.cabi.org/isc/datasheet/4493"
+        ]
+      },
+      {
+        "name": "Pest Damage",
+        "articles": [
+          "https://extension.umn.edu/yard-and-garden-insects"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "aloe",
+    "plants": [
+      "aloe"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://hgic.clemson.edu/factsheet/aloe-vera/",
+          "https://extension.umn.edu/houseplants/aloe"
+        ]
+      },
+      {
+        "name": "Anthracnose",
+        "articles": [
+          "https://extension.umn.edu/diseases/anthracnose"
+        ]
+      },
+      {
+        "name": "Leaf Spot",
+        "articles": [
+          "https://extension.umn.edu/diseases/leaf-spot-diseases-trees-and-shrubs"
+        ]
+      },
+      {
+        "name": "Rust",
+        "articles": [
+          "https://extension.umn.edu/diseases/rust-garden-plants"
+        ]
+      },
+      {
+        "name": "Sunburn",
+        "articles": [
+          "https://extension.umn.edu/houseplants/aloe"
+        ]
+      }
+    ]
+  },
+  {
+    "genus": "opuntia",
+    "plants": [
+      "cactus"
+    ],
+    "diseases": [
+      {
+        "name": "Healthy",
+        "articles": [
+          "https://extension.umn.edu/houseplants/cactus"
+        ]
+      },
+      {
+        "name": "Dactylopius Opuntia (Cochineal)",
+        "articles": [
+          "https://www.cabi.org/isc/datasheet/18354"
+        ]
+      }
+    ]
+  }
+]

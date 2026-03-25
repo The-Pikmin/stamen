@@ -1,0 +1,18 @@
+[
+  {
+    "genus": "solanum",
+    "plants": [
+      "tomato",
+      "potato"
+    ],
+    "diseases": [
+      {
+        "name": "Early Blight",
+        "articles": [
+          "https://blogs.cornell.edu/livegpath/gallery/tomato/early-blight/",
+          "https://extension.umn.edu/diseases/early-blight-tomato"
+        ]
+      }
+    ]
+  }
+]

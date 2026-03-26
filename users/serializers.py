@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import PlantImage
+from .models import PlantImage, ScanResult
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -21,3 +21,20 @@ class PlantImageSerializer(serializers.ModelSerializer):
         from .services import get_image_url
 
         return get_image_url(obj)
+
+
+class ScanResultSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ScanResult
+        fields = [
+            "id",
+            "image_url",
+            "plant_name",
+            "top_predictions",
+            "disease_name",
+            "disease_confidence",
+            "disease_genus",
+            "all_diseases",
+            "created_at",
+        ]
+        read_only_fields = fields

@@ -37,6 +37,8 @@ def fetch_all_diseases() -> list[dict]:
 
 def fetch_disease(genus: str, disease_name: str) -> dict | None:
     """Fetch a single disease by genus and disease_name."""
+    # Model output uses underscores (e.g. "Powdery_Mildew"); DB uses spaces.
+    disease_name = disease_name.replace("_", " ")
     client = get_supabase_client()
     response = (
         client.table("disease_static")

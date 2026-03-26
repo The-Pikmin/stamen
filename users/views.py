@@ -3,7 +3,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django.conf import settings
-from .serializers import PlantImageSerializer
+from .models import ScanResult
+from .serializers import PlantImageSerializer, ScanResultSerializer
 from .services import upload_plant_image, call_inference
 
 
@@ -89,6 +90,40 @@ def update_profile(request):
         },
         status=status.HTTP_200_OK,
     )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def save_scan(request):
+    data = request.data
+    plant_name = data.get("plant_name")
+    image_url = data.get("image_url")
+    if not plant_name or not image_url:
+        return Response(
+            {"error": "plant_name and image_url are required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    scan = ScanResult.objects.create(
+        user=request.user,
+        image_url=image_url,
+        plant_name=plant_name,
+        top_predictions=data.get("top_predictions", []),
+        disease_name=data.get("disease_name", ""),
+        disease_confidence=data.get("disease_confidence"),
+        disease_genus=data.get("disease_genus", ""),
+        all_diseases=data.get("all_diseases", []),
+    )
+    serializer = ScanResultSerializer(scan)
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def scan_history(request):
+    scans = ScanResult.objects.filter(user=request.user)[:50]
+    serializer = ScanResultSerializer(scans, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @api_view(["POST"])

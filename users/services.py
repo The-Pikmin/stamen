@@ -31,11 +31,7 @@ def enrich_predictions_with_common_names(result: dict) -> dict:
 def fetch_all_diseases() -> list[dict]:
     """Fetch all diseases from the static_diseases table."""
     client = get_supabase_client()
-    response = (
-        client.table("static_diseases")
-        .select("disease_id, disease_name, genus, recommended_actions")
-        .execute()
-    )
+    response = client.table("disease_static").select("*").execute()
     return response.data
 
 
@@ -43,8 +39,8 @@ def fetch_disease(genus: str, disease_name: str) -> dict | None:
     """Fetch a single disease by genus and disease_name."""
     client = get_supabase_client()
     response = (
-        client.table("static_diseases")
-        .select("disease_id, disease_name, genus, recommended_actions")
+        client.table("disease_static")
+        .select("*")
         .ilike("genus", genus)
         .ilike("disease_name", disease_name)
         .limit(1)

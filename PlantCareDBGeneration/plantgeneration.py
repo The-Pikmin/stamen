@@ -13,14 +13,14 @@ from supabase import create_client
 load_dotenv()
 
 # Path to the input data and the cache file that tracks what's already been processed
-DATA_PATH = "./full_plant_diseases.json"
+DATA_PATH = "./dry_run.json" # CHANGE TO NAME OF JSON WITH ALL PLANTS TO RUN
 CACHE_PATH = "./cache.json"
 
 # How long to wait between requests (seconds) to avoid hitting rate limits
-DELAY_SECONDS = 2
+DELAY_SECONDS = 1.2
 
 # Max characters to pull from each article (keeps prompts from getting too large)
-MAX_ARTICLE_LENGTH = 4000
+MAX_ARTICLE_LENGTH = 5000
 
 # Set up logging to write to both the console and a timestamped log file.
 # Each run creates a new file under ./logs/ so you have a full history.
@@ -60,34 +60,90 @@ def extract_article_text(url):
         return ""
 
 
-def generate_care(genus, disease, plant_list, content):
+def generate_care(genus, disease, plant_list, content, use_web_search=False):
     """Send the article content to Claude and ask it to write a care guide."""
     prompt = f"""You are a plant care expert.
 
-Generate a practical care or treatment guide for plant disease identification app users.
+Generate a care or treatment guide for plant disease identification app users.
 
 Genus: {genus}
 Condition: {disease}
 Affected Plants: {", ".join(plant_list)}
 
-Include:
-- Symptoms
-- Causes
-- Treatment steps
-- Prevention tips
+You must respond with a single valid JSON object using exactly this structure, with no extra text, markdown, or code fences outside the JSON:
 
-Keep it concise (200-400 words). Write in plain language suitable for home gardeners.
+{{
+  "disease_name": "{disease}",
+  "scientific_name": "the scientific name of the disease",
+  "affected_plants": ["plant1", "plant2"],
+  "symptoms": [
+    {{
+      "description": "what the symptom looks like",
+      "progression": "how it develops over time"
+    }}
+  ],
+  "onset_period": "time of year or conditions when disease typically appears",
+  "causes": [
+    {{
+      "factor": "name of the cause",
+      "detail": "explanation of how this factor contributes"
+    }}
+  ],
+  "treatments": [
+    {{
+      "step": 1,
+      "action": "what to do",
+      "detail": "how and why to do it",
+      "urgency": "immediate | ongoing | conditional"
+    }}
+  ],
+  "prevention": [
+    {{
+      "tip": "short tip title",
+      "detail": "explanation of the prevention measure"
+    }}
+  ]
+}}
+
+Include 2-3 items in symptoms, causes, treatments, and prevention. Write in plain language suitable for home gardeners.
 
 Reference Material:
 {content}"""
 
-    message = anthropic_client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=1024,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    if use_web_search:
+        message = anthropic_client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=4096,
+            messages=[{"role": "user", "content": prompt}],
+            tools=[{"type": "web_search_20250305", "name": "web_search"}],
+        )
+    else:
+        message = anthropic_client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=4096,
+            messages=[{"role": "user", "content": prompt}],
+        )
 
-    return message.content[0].text.strip()
+    # Claude can return multiple content blocks (e.g. thinking blocks alongside text).
+    # Find the first TextBlock explicitly rather than assuming index 0 is always text.
+    text_block = next((block for block in message.content if block.type == "text"), None)
+
+    if not text_block:
+        raise ValueError("No text block found in Claude response.")
+
+    raw = text_block.text.strip()
+
+    # Claude sometimes wraps JSON in markdown code fences despite being told not to.
+    # Strip them before parsing so we always get clean JSON.
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[-1]
+        raw = raw.rsplit("```", 1)[0].strip()
+
+    # Validate that the response is proper JSON before returning it.
+    # This will raise an error (caught in main) if Claude returns malformed output.
+    json.loads(raw)
+
+    return raw
 
 
 def build_disease_map(data):
@@ -160,31 +216,45 @@ def main():
             combined_text += text + "\n\n"
             time.sleep(0.3)
 
+        # If articles failed to load, fall back to Claude's web search tool
+        # so the entry still gets generated rather than skipped entirely.
         if not combined_text.strip():
-            log.warning(f"  No article content found for {cache_key}, skipping.")
-            continue
+            log.warning(f"  No article content found for {cache_key}, falling back to web search.")
+            combined_text = ""
+            use_web_search = True
+        else:
+            use_web_search = False
 
         # Generate the care text using Claude
         try:
-            disease_label = (
-                "Healthy plant care" if disease_name == "Healthy" else disease_name
-            )
-            care_text = generate_care(genus, disease_label, plants, combined_text)
+            disease_label = "Healthy plant care" if disease_name == "Healthy" else disease_name
+            care_text = generate_care(genus, disease_label, plants, combined_text, use_web_search)
+            if not care_text:
+                log.warning(f"  Claude returned empty response for {cache_key}, skipping.")
+                continue
             log.info(f"  Generated {len(care_text)} chars of care text.")
         except Exception as e:
             log.error(f"  AI generation failed: {e}")
             continue
 
-        # Write the result to the disease_static table in Supabase
-        result = (
-            supabase.table("disease_static")
-            .update({"recommended_action": care_text})
-            .eq("disease_name", disease_name)
-            .execute()
-        )
-
-        if hasattr(result, "error") and result.error:
-            log.error(f"  Database update failed: {result.error}")
+        # Write the result to the disease_static table in Supabase.
+        # upsert will update the row if disease_name already exists, or insert
+        # a new row if it doesn't — so the table can start completely empty.
+        # on_conflict tells Supabase which column to match on for the update.
+        try:
+            result = (
+                supabase.table("disease_static")
+                .upsert(
+                    {"disease_name": disease_name, "genus": genus, "recommended_actions": care_text},
+                    on_conflict="disease_name",
+                )
+                .execute()
+            )
+            if not result.data:
+                log.warning(f"  Upsert returned no data for '{disease_name}', check table permissions.")
+                continue
+        except Exception as e:
+            log.error(f"  Database upsert failed: {e}")
             continue
 
         # Mark this pair as done in the cache file

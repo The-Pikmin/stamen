@@ -166,7 +166,9 @@ def main():
 
         # Generate the care text using Claude
         try:
-            disease_label = "Healthy plant care" if disease_name == "Healthy" else disease_name
+            disease_label = (
+                "Healthy plant care" if disease_name == "Healthy" else disease_name
+            )
             care_text = generate_care(genus, disease_label, plants, combined_text)
             log.info(f"  Generated {len(care_text)} chars of care text.")
         except Exception as e:

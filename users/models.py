@@ -21,7 +21,9 @@ class PlantImage(models.Model):
 
 
 class ScanResult(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="scan_results")
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="scan_results"
+    )
     plant_image = models.ForeignKey(
         PlantImage, on_delete=models.SET_NULL, null=True, blank=True
     )

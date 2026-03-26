@@ -70,6 +70,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 _database_url = config("DATABASE_URL", default="")
 if _database_url:
     from urllib.parse import urlparse as _urlparse, unquote as _unquote
+
     _u = _urlparse(_database_url)
     DATABASES = {
         "default": {

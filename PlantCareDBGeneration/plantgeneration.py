@@ -13,7 +13,7 @@ from supabase import create_client
 load_dotenv()
 
 # Path to the input data and the cache file that tracks what's already been processed
-DATA_PATH = "./dry_run.json" # CHANGE TO NAME OF JSON WITH ALL PLANTS TO RUN
+DATA_PATH = "./dry_run.json"  # CHANGE TO NAME OF JSON WITH ALL PLANTS TO RUN
 CACHE_PATH = "./cache.json"
 
 # How long to wait between requests (seconds) to avoid hitting rate limits
@@ -70,7 +70,8 @@ Genus: {genus}
 Condition: {disease}
 Affected Plants: {", ".join(plant_list)}
 
-You must respond with a single valid JSON object using exactly this structure, with no extra text, markdown, or code fences outside the JSON:
+You must respond with a single valid JSON object using exactly
+this structure, with no extra text, markdown, or code fences:
 
 {{
   "disease_name": "{disease}",
@@ -105,7 +106,8 @@ You must respond with a single valid JSON object using exactly this structure, w
   ]
 }}
 
-Include 2-3 items in symptoms, causes, treatments, and prevention. Write in plain language suitable for home gardeners.
+Include 2-3 items in symptoms, causes, treatments, and
+prevention. Write in plain language suitable for home gardeners.
 
 Reference Material:
 {content}"""
@@ -126,7 +128,9 @@ Reference Material:
 
     # Claude can return multiple content blocks (e.g. thinking blocks alongside text).
     # Find the first TextBlock explicitly rather than assuming index 0 is always text.
-    text_block = next((block for block in message.content if block.type == "text"), None)
+    text_block = next(
+        (block for block in message.content if block.type == "text"), None
+    )
 
     if not text_block:
         raise ValueError("No text block found in Claude response.")
@@ -219,7 +223,10 @@ def main():
         # If articles failed to load, fall back to Claude's web search tool
         # so the entry still gets generated rather than skipped entirely.
         if not combined_text.strip():
-            log.warning(f"  No article content found for {cache_key}, falling back to web search.")
+            log.warning(
+                "  No article content found for "
+                f"{cache_key}, falling back to web search."
+            )
             combined_text = ""
             use_web_search = True
         else:
@@ -227,10 +234,16 @@ def main():
 
         # Generate the care text using Claude
         try:
-            disease_label = "Healthy plant care" if disease_name == "Healthy" else disease_name
-            care_text = generate_care(genus, disease_label, plants, combined_text, use_web_search)
+            disease_label = (
+                "Healthy plant care" if disease_name == "Healthy" else disease_name
+            )
+            care_text = generate_care(
+                genus, disease_label, plants, combined_text, use_web_search
+            )
             if not care_text:
-                log.warning(f"  Claude returned empty response for {cache_key}, skipping.")
+                log.warning(
+                    f"  Claude returned empty response for {cache_key}, skipping."
+                )
                 continue
             log.info(f"  Generated {len(care_text)} chars of care text.")
         except Exception as e:
@@ -245,13 +258,20 @@ def main():
             result = (
                 supabase.table("disease_static")
                 .upsert(
-                    {"disease_name": disease_name, "genus": genus, "recommended_actions": care_text},
+                    {
+                        "disease_name": disease_name,
+                        "genus": genus,
+                        "recommended_actions": care_text,
+                    },
                     on_conflict="disease_name",
                 )
                 .execute()
             )
             if not result.data:
-                log.warning(f"  Upsert returned no data for '{disease_name}', check table permissions.")
+                log.warning(
+                    "  Upsert returned no data for "
+                    f"'{disease_name}', check table permissions."
+                )
                 continue
         except Exception as e:
             log.error(f"  Database upsert failed: {e}")

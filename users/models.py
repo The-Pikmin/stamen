@@ -27,7 +27,8 @@ class ScanResult(models.Model):
     plant_image = models.ForeignKey(
         PlantImage, on_delete=models.SET_NULL, null=True, blank=True
     )
-    image_url = models.URLField(max_length=1000)
+    image_url = models.URLField(max_length=1000, blank=True, default="")
+    supabase_path = models.CharField(max_length=500, blank=True, default="")
     plant_name = models.CharField(max_length=200)
     top_predictions = models.JSONField(default=list)
     disease_name = models.CharField(max_length=200, blank=True, default="")

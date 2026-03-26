@@ -120,6 +120,7 @@ def save_scan(request):
     scan = ScanResult.objects.create(
         user=request.user,
         image_url=image_url,
+        supabase_path=data.get("supabase_path", ""),
         plant_name=plant_name,
         top_predictions=data.get("top_predictions", []),
         disease_name=data.get("disease_name", ""),

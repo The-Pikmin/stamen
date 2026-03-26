@@ -24,6 +24,8 @@ class PlantImageSerializer(serializers.ModelSerializer):
 
 
 class ScanResultSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+
     class Meta:
         model = ScanResult
         fields = [
@@ -38,3 +40,10 @@ class ScanResultSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = fields
+
+    def get_image_url(self, obj):
+        if obj.supabase_path:
+            from .services import generate_signed_url
+
+            return generate_signed_url(obj.supabase_path)
+        return obj.image_url

@@ -5,7 +5,13 @@ from rest_framework.response import Response
 from django.conf import settings
 from .models import ScanResult
 from .serializers import PlantImageSerializer, ScanResultSerializer
-from .services import upload_plant_image, call_inference
+from .services import (
+    upload_plant_image,
+    call_inference,
+    enrich_predictions_with_common_names,
+    fetch_all_diseases,
+    fetch_disease,
+)
 
 
 @api_view(["GET"])
@@ -35,6 +41,13 @@ def predict(request):
 
     try:
         result = call_inference(image_url)
+        enrich_predictions_with_common_names(result)
+
+        # Flag low-confidence predictions
+        predictions = result.get("predictions", [])
+        top_confidence = predictions[0]["confidence"] if predictions else 0
+        result["low_confidence"] = top_confidence < 0.15
+
         return Response(result, status=status.HTTP_200_OK)
     except ValueError as e:
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -124,6 +137,48 @@ def scan_history(request):
     scans = ScanResult.objects.filter(user=request.user)[:50]
     serializer = ScanResultSerializer(scans, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def scan_detail(request, pk):
+    try:
+        scan = ScanResult.objects.get(pk=pk, user=request.user)
+    except ScanResult.DoesNotExist:
+        return Response({"error": "Scan not found"}, status=status.HTTP_404_NOT_FOUND)
+    serializer = ScanResultSerializer(scan)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def disease_list(request):
+    """List all diseases from the static_diseases table."""
+    try:
+        diseases = fetch_all_diseases()
+        return Response(diseases, status=status.HTTP_200_OK)
+    except Exception as e:
+        if settings.DEBUG:
+            return Response(
+                {"error": f"Failed to fetch diseases: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        return Response(
+            {"error": "Failed to fetch diseases"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def disease_detail(request, genus, disease_name):
+    """Get a single disease by genus and disease_name."""
+    disease = fetch_disease(genus, disease_name)
+    if not disease:
+        return Response(
+            {"error": "Disease not found"}, status=status.HTTP_404_NOT_FOUND
+        )
+    return Response(disease, status=status.HTTP_200_OK)
 
 
 @api_view(["POST"])

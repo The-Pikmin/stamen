@@ -1,6 +1,8 @@
 from PIL import Image
 from io import BytesIO
+import json
 import uuid
+from pathlib import Path
 from urllib.parse import urlparse
 import requests
 import google.auth.transport.requests
@@ -8,6 +10,49 @@ import google.oauth2.id_token
 from django.conf import settings
 from .supabase import get_supabase_client
 from .models import PlantImage
+
+# Load common names lookup (scientific name -> common name)
+_COMMON_NAMES_PATH = Path(settings.BASE_DIR).parent / "lotus" / "common_names.json"
+try:
+    with open(_COMMON_NAMES_PATH) as _f:
+        COMMON_NAMES: dict[str, str] = json.load(_f)
+except (FileNotFoundError, json.JSONDecodeError):
+    COMMON_NAMES = {}
+
+
+def enrich_predictions_with_common_names(result: dict) -> dict:
+    """Add common_name field to each prediction in the inference result."""
+    for pred in result.get("predictions", []):
+        name = pred.get("name", "")
+        pred["common_name"] = COMMON_NAMES.get(name, "")
+    return result
+
+
+def fetch_all_diseases() -> list[dict]:
+    """Fetch all diseases from the static_diseases table."""
+    client = get_supabase_client()
+    response = (
+        client.table("static_diseases")
+        .select("disease_id, disease_name, genus, recommended_actions")
+        .execute()
+    )
+    return response.data
+
+
+def fetch_disease(genus: str, disease_name: str) -> dict | None:
+    """Fetch a single disease by genus and disease_name."""
+    client = get_supabase_client()
+    response = (
+        client.table("static_diseases")
+        .select("disease_id, disease_name, genus, recommended_actions")
+        .ilike("genus", genus)
+        .ilike("disease_name", disease_name)
+        .limit(1)
+        .execute()
+    )
+    if response.data:
+        return response.data[0]
+    return None
 
 
 # Removes all EXIF metadata (including GPS location) from img

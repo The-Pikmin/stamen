@@ -9,13 +9,15 @@
 
 # Introduction
 
-Stamen is a Django REST API that powers the GreenEye plant disease diagnosis app. It handles user authentication (via Supabase), image uploads to Supabase Storage, and plant species identification through a Cloud Run inference service (Lotus).
+Stamen is a Django REST API that powers the GreenEye plant disease diagnosis app. It handles user authentication (via Supabase), image uploads to Supabase Storage, plant species identification through a Cloud Run inference service (Lotus), scan history management, and disease library lookups from Supabase.
 
 # Architecture
 
 - **Authentication:** Supabase Auth with JWKS-based JWT verification. The frontend authenticates directly with Supabase and sends the JWT to Stamen, which verifies it against Supabase's JWKS endpoint. Django users are auto-provisioned on first request.
 - **Image Storage:** Supabase Storage with EXIF stripping for privacy. Signed URLs with 1-hour expiration.
-- **Inference:** Plant identification is handled by the Lotus model running on Google Cloud Run. Stamen proxies requests with Google OIDC authentication.
+- **Inference:** Plant identification is handled by the Lotus model running on Google Cloud Run. Stamen proxies requests with Google OIDC authentication. Predictions are enriched with common names from a static lookup before returning to the frontend. Low-confidence results (top prediction < 15%) are flagged.
+- **Disease Library:** Treatment and prevention information is stored in a Supabase `static_diseases` table and served via dedicated endpoints.
+- **Scan History:** Users can save scan results and retrieve them later. Scans store the image URL, plant name, top predictions (as JSON), and disease analysis.
 - **Database:** PostgreSQL (SQLite for tests).
 - **Deployment:** Render with Gunicorn and WhiteNoise for static files.
 
@@ -27,8 +29,13 @@ Stamen is a Django REST API that powers the GreenEye plant disease diagnosis app
 | GET | `/api/message/` | No | Test endpoint |
 | GET | `/api/me/` | Yes | Get current user profile |
 | PATCH | `/api/me/profile/` | Yes | Update username |
-| POST | `/api/predict/` | Yes | Plant species prediction |
-| POST | `/api/images/upload/` | Yes | Upload plant image |
+| POST | `/api/predict/` | Yes | Plant species + disease prediction (returns `low_confidence` flag) |
+| POST | `/api/images/upload/` | Yes | Upload plant image to Supabase Storage |
+| POST | `/api/scans/` | Yes | Save a scan result to history |
+| GET | `/api/scans/list/` | Yes | Get scan history (most recent 50) |
+| GET | `/api/scans/<id>/` | Yes | Get a single scan by ID |
+| GET | `/api/diseases/` | Yes | List all diseases from the library |
+| GET | `/api/diseases/<genus>/<disease_name>/` | Yes | Get disease details with treatment info |
 
 All authenticated endpoints require a `Bearer` token (Supabase JWT) in the `Authorization` header.
 
@@ -36,7 +43,7 @@ All authenticated endpoints require a `Bearer` token (Supabase JWT) in the `Auth
 
 1. Install [Python](https://www.python.org/downloads/) (v3.10 or higher).
 
-2. Clone this repository and navigate to the root directory.
+2. Clone this repository and navigate to the `stamen/` directory.
 
 3. Create and activate a virtual environment:
 ```bash
@@ -57,7 +64,7 @@ pip install -r requirements.txt
 
 ## Environment Variables
 
-Create a `.env` file in the root of the repository with the following variables:
+Create a `.env` file in the `stamen/` directory with the following variables:
 
 ```
 SECRET_KEY=<django-secret-key>

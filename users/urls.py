@@ -8,6 +8,9 @@ from .views import (
     upload_image,
     save_scan,
     scan_history,
+    scan_detail,
+    disease_list,
+    disease_detail,
 )
 
 urlpatterns = [
@@ -19,4 +22,11 @@ urlpatterns = [
     path("images/upload/", upload_image, name="upload_image"),
     path("scans/", save_scan, name="save-scan"),
     path("scans/list/", scan_history, name="scan-history"),
+    path("scans/<int:pk>/", scan_detail, name="scan-detail"),
+    path("diseases/", disease_list, name="disease-list"),
+    path(
+        "diseases/<str:genus>/<str:disease_name>/",
+        disease_detail,
+        name="disease-detail",
+    ),
 ]

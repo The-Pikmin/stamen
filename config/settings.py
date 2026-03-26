@@ -65,19 +65,33 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 # Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-# If DATABASE_URL is set (e.g. on Render), use it.
+# If DATABASE_URL is set, parse and use it directly (preferred).
 # Otherwise fall back to individual DB_* vars.
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": config("DB_NAME"),
-        "USER": config("DB_USER"),
-        "PASSWORD": config("DB_PASSWORD"),
-        "HOST": config("DB_HOST", default="localhost"),
-        "PORT": config("DB_PORT", default="5432"),
+_database_url = config("DATABASE_URL", default="")
+if _database_url:
+    from urllib.parse import urlparse as _urlparse, unquote as _unquote
+    _u = _urlparse(_database_url)
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": _u.path.lstrip("/"),
+            "USER": _unquote(_u.username or ""),
+            "PASSWORD": _unquote(_u.password or ""),
+            "HOST": _u.hostname,
+            "PORT": str(_u.port or 5432),
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": config("DB_NAME"),
+            "USER": config("DB_USER"),
+            "PASSWORD": config("DB_PASSWORD"),
+            "HOST": config("DB_HOST", default="localhost"),
+            "PORT": config("DB_PORT", default="5432"),
+        }
+    }
 
 # Use SQLite for testing (manage.py test or pytest)
 if "test" in sys.argv or "pytest" in sys.modules:

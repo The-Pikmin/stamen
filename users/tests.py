@@ -623,7 +623,7 @@ class GetImageUrlTests(TestCase):
         url = get_image_url(plant_img)
         self.assertEqual(url, "https://signed.example.com/img")
         mock_storage.create_signed_url.assert_called_once_with(
-            path="uid/img.jpg", expires_in=3600
+            path="uid/img.jpg", expires_in=86400
         )
 
 

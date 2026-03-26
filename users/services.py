@@ -96,13 +96,20 @@ def upload_plant_image(user, image_file, original_filename: str) -> PlantImage:
 
 
 # Generates a signed URL for img
-def get_image_url(plant_image: PlantImage) -> str:
+_SIGNED_URL_EXPIRY = 86400  # 24 hours
+
+
+def generate_signed_url(supabase_path: str) -> str:
     client = get_supabase_client()
     response = client.storage.from_(settings.SUPABASE_BUCKET).create_signed_url(
-        path=plant_image.supabase_path,
-        expires_in=3600,  # 1 hour expiration (security measure)
+        path=supabase_path,
+        expires_in=_SIGNED_URL_EXPIRY,
     )
     return response["signedURL"]
+
+
+def get_image_url(plant_image: PlantImage) -> str:
+    return generate_signed_url(plant_image.supabase_path)
 
 
 def _get_id_token(audience: str) -> str:

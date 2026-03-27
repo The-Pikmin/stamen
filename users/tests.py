@@ -18,7 +18,7 @@ from rest_framework.exceptions import AuthenticationFailed
 
 from users.services import validate_supabase_url, strip_exif
 from users.authentication import SupabaseJWTAuthentication
-from users.models import UserProfile
+from users.models import PlantImage, ScanResult, UserProfile
 
 MOCK_CLOUD_RUN_URL = "https://lotus-model-test-uc.a.run.app"
 
@@ -552,6 +552,90 @@ class UploadImageTests(TestCase):
             "/api/images/upload/", {"image": image}, format="multipart"
         )
         self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class ScanManagementTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="scanner", email="scan@test.com")
+        self.other_user = User.objects.create_user(
+            username="other-scanner", email="other-scan@test.com"
+        )
+        self.client.force_authenticate(user=self.user)
+        self.scan = ScanResult.objects.create(
+            user=self.user,
+            supabase_path="uid-up/scan.jpg",
+            plant_name="Tomato",
+            top_predictions=[],
+            disease_name="Healthy",
+            all_diseases=[],
+        )
+
+    def test_delete_scan(self):
+        resp = self.client.delete(f"/api/scans/{self.scan.pk}/")
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(ScanResult.objects.filter(pk=self.scan.pk).exists())
+
+    def test_delete_other_users_scan_returns_404(self):
+        foreign_scan = ScanResult.objects.create(
+            user=self.other_user,
+            supabase_path="foreign/scan.jpg",
+            plant_name="Rose",
+            top_predictions=[],
+            disease_name="Healthy",
+            all_diseases=[],
+        )
+        resp = self.client.delete(f"/api/scans/{foreign_scan.pk}/")
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class UploadManagementTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="gallery", email="gallery@test.com")
+        self.other_user = User.objects.create_user(
+            username="other-gallery", email="other-gallery@test.com"
+        )
+        UserProfile.objects.create(user=self.user, supabase_uid="gallery-uid")
+        UserProfile.objects.create(user=self.other_user, supabase_uid="other-gallery-uid")
+        self.client.force_authenticate(user=self.user)
+        self.image = PlantImage.objects.create(
+            user=self.user, supabase_path="gallery-uid/upload.jpg"
+        )
+
+    @patch("users.services.get_image_url", return_value="https://signed.example.com/upload")
+    def test_list_uploads(self, _mock_url):
+        resp = self.client.get("/api/images/list/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp.data), 1)
+        self.assertEqual(resp.data[0]["id"], self.image.id)
+        self.assertFalse(resp.data[0]["in_use"])
+
+    @patch("users.views.delete_storage_object")
+    def test_delete_unused_upload(self, mock_delete_storage_object):
+        resp = self.client.delete(f"/api/images/{self.image.pk}/")
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+        mock_delete_storage_object.assert_called_once_with("gallery-uid/upload.jpg")
+        self.assertFalse(PlantImage.objects.filter(pk=self.image.pk).exists())
+
+    @patch("users.views.delete_storage_object")
+    def test_delete_upload_in_use_returns_conflict(self, mock_delete_storage_object):
+        ScanResult.objects.create(
+            user=self.user,
+            supabase_path="gallery-uid/upload.jpg",
+            plant_name="Tomato",
+            top_predictions=[],
+            disease_name="Healthy",
+            all_diseases=[],
+        )
+        resp = self.client.delete(f"/api/images/{self.image.pk}/")
+        self.assertEqual(resp.status_code, status.HTTP_409_CONFLICT)
+        self.assertIn("Delete that scan first", resp.data["error"])
+        mock_delete_storage_object.assert_not_called()
+
+    def test_delete_missing_upload_returns_404(self):
+        resp = self.client.delete("/api/images/9999/")
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
 
 
 # ---------------------------------------------------------------------------

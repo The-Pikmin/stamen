@@ -115,6 +115,8 @@ def get_image_url(plant_image: PlantImage) -> str:
 def delete_storage_object(supabase_path: str) -> None:
     client = get_supabase_client()
     client.storage.from_(settings.SUPABASE_BUCKET).remove([supabase_path])
+
+
 def _get_id_token(audience: str) -> str:
     # Fetches a Google OIDC identity token
     auth_req = google.auth.transport.requests.Request()

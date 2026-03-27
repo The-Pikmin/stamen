@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django.conf import settings
-from .models import ScanResult
+from .models import PlantImage, ScanResult
 from .serializers import PlantImageSerializer, ScanResultSerializer
 from .services import (
     upload_plant_image,
@@ -11,6 +11,7 @@ from .services import (
     enrich_predictions_with_common_names,
     fetch_all_diseases,
     fetch_disease,
+    delete_storage_object,
 )
 
 
@@ -140,13 +141,18 @@ def scan_history(request):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-@api_view(["GET"])
+@api_view(["GET", "DELETE"])
 @permission_classes([IsAuthenticated])
 def scan_detail(request, pk):
     try:
         scan = ScanResult.objects.get(pk=pk, user=request.user)
     except ScanResult.DoesNotExist:
         return Response({"error": "Scan not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == "DELETE":
+        scan.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     serializer = ScanResultSerializer(scan)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -206,5 +212,48 @@ def upload_image(request):
             )
         return Response(
             {"error": "Image upload failed"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def image_list(request):
+    images = PlantImage.objects.filter(user=request.user).order_by("-uploaded_at")
+    serializer = PlantImageSerializer(images, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def image_detail(request, pk):
+    try:
+        image = PlantImage.objects.get(pk=pk, user=request.user)
+    except PlantImage.DoesNotExist:
+        return Response({"error": "Upload not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    is_in_use = ScanResult.objects.filter(
+        user=request.user, supabase_path=image.supabase_path
+    ).exists()
+    if is_in_use:
+        return Response(
+            {
+                "error": "This upload is still used by a saved scan. Delete that scan first."
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+
+    try:
+        delete_storage_object(image.supabase_path)
+        image.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    except Exception as e:
+        if settings.DEBUG:
+            return Response(
+                {"error": f"Upload deletion failed: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        return Response(
+            {"error": "Upload deletion failed"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )

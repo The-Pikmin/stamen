@@ -11,16 +11,22 @@ class UserSerializer(serializers.ModelSerializer):
 
 class PlantImageSerializer(serializers.ModelSerializer):
     url = serializers.SerializerMethodField()
+    in_use = serializers.SerializerMethodField()
 
     class Meta:
         model = PlantImage
-        fields = ["id", "supabase_path", "uploaded_at", "url"]
-        read_only_fields = ["id", "supabase_path", "uploaded_at", "url"]
+        fields = ["id", "supabase_path", "uploaded_at", "url", "in_use"]
+        read_only_fields = ["id", "supabase_path", "uploaded_at", "url", "in_use"]
 
     def get_url(self, obj):
         from .services import get_image_url
 
         return get_image_url(obj)
+
+    def get_in_use(self, obj):
+        return ScanResult.objects.filter(
+            user=obj.user, supabase_path=obj.supabase_path
+        ).exists()
 
 
 class ScanResultSerializer(serializers.ModelSerializer):

@@ -238,7 +238,9 @@ def image_detail(request, pk):
     if is_in_use:
         return Response(
             {
-                "error": "This upload is still used by a saved scan. Delete that scan first."
+                "error": (
+                    "This upload is still used by a saved scan. Delete that scan first."
+                )
             },
             status=status.HTTP_409_CONFLICT,
         )

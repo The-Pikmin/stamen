@@ -592,18 +592,29 @@ class ScanManagementTests(TestCase):
 class UploadManagementTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.user = User.objects.create_user(username="gallery", email="gallery@test.com")
+        self.user = User.objects.create_user(
+            username="gallery",
+            email="gallery@test.com",
+        )
         self.other_user = User.objects.create_user(
-            username="other-gallery", email="other-gallery@test.com"
+            username="other-gallery",
+            email="other-gallery@test.com",
         )
         UserProfile.objects.create(user=self.user, supabase_uid="gallery-uid")
-        UserProfile.objects.create(user=self.other_user, supabase_uid="other-gallery-uid")
+        UserProfile.objects.create(
+            user=self.other_user,
+            supabase_uid="other-gallery-uid",
+        )
         self.client.force_authenticate(user=self.user)
         self.image = PlantImage.objects.create(
-            user=self.user, supabase_path="gallery-uid/upload.jpg"
+            user=self.user,
+            supabase_path="gallery-uid/upload.jpg",
         )
 
-    @patch("users.services.get_image_url", return_value="https://signed.example.com/upload")
+    @patch(
+        "users.services.get_image_url",
+        return_value="https://signed.example.com/upload",
+    )
     def test_list_uploads(self, _mock_url):
         resp = self.client.get("/api/images/list/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)

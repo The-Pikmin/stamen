@@ -37,14 +37,17 @@ def fetch_all_diseases() -> list[dict]:
 
 def fetch_disease(genus: str, disease_name: str) -> dict | None:
     """Fetch a single disease by genus and disease_name."""
-    # Model output uses underscores (e.g. "Powdery_Mildew"); DB uses spaces.
-    disease_name = disease_name.replace("_", " ")
+    # DB has a mix of underscores and spaces in disease_name; try both forms.
+    if "_" in disease_name:
+        alt_name = disease_name.replace("_", " ")
+    else:
+        alt_name = disease_name.replace(" ", "_")
     client = get_supabase_client()
     response = (
         client.table("disease_static")
         .select("*")
         .ilike("genus", genus)
-        .ilike("disease_name", disease_name)
+        .or_(f"disease_name.ilike.{disease_name},disease_name.ilike.{alt_name}")
         .limit(1)
         .execute()
     )

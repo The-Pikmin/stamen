@@ -231,13 +231,16 @@ def image_list(request):
     end = start + page_size
     serializer = PlantImageSerializer(images[start:end], many=True)
 
-    return Response({
-        "results": serializer.data,
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "total_pages": (total + page_size - 1) // page_size or 1,
-    }, status=status.HTTP_200_OK)
+    return Response(
+        {
+            "results": serializer.data,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": (total + page_size - 1) // page_size or 1,
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 @api_view(["DELETE"])

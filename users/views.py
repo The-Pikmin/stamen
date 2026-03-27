@@ -220,8 +220,24 @@ def upload_image(request):
 @permission_classes([IsAuthenticated])
 def image_list(request):
     images = PlantImage.objects.filter(user=request.user).order_by("-uploaded_at")
-    serializer = PlantImageSerializer(images, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+
+    page = int(request.query_params.get("page", 1))
+    page_size = int(request.query_params.get("page_size", 24))
+    page = max(1, page)
+    page_size = max(1, min(page_size, 100))
+
+    total = images.count()
+    start = (page - 1) * page_size
+    end = start + page_size
+    serializer = PlantImageSerializer(images[start:end], many=True)
+
+    return Response({
+        "results": serializer.data,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size or 1,
+    }, status=status.HTTP_200_OK)
 
 
 @api_view(["DELETE"])

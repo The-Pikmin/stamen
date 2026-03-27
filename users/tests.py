@@ -369,7 +369,7 @@ class SupabaseJWTAuthenticationTests(TestCase):
         }
         request = self.factory.get("/api/me/", HTTP_AUTHORIZATION="Bearer token")
         user, _ = self.auth.authenticate(request)
-        self.assertEqual(user.username, "john_doe")
+        self.assertEqual(user.username, "John Doe")
 
     @patch("users.authentication.jwt.decode")
     @patch("users.authentication._get_jwks_client")
@@ -618,9 +618,10 @@ class UploadManagementTests(TestCase):
     def test_list_uploads(self, _mock_url):
         resp = self.client.get("/api/images/list/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(resp.data), 1)
-        self.assertEqual(resp.data[0]["id"], self.image.id)
-        self.assertFalse(resp.data[0]["in_use"])
+        results = resp.data["results"]
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["id"], self.image.id)
+        self.assertFalse(results[0]["in_use"])
 
     @patch("users.views.delete_storage_object")
     def test_delete_unused_upload(self, mock_delete_storage_object):

@@ -65,14 +65,19 @@ class SupabaseJWTAuthentication(BaseAuthentication):
             profile = UserProfile.objects.select_related("user").get(
                 supabase_uid=supabase_uid
             )
-            return profile.user
+            user = profile.user
+            full_name = user_metadata.get("full_name", "")
+            if full_name and user.username != full_name:
+                user.username = full_name
+                user.save(update_fields=["username"])
+            return user
         except UserProfile.DoesNotExist:
             pass
 
         # Auto-provision: derive username from metadata or email
         username = (
             user_metadata.get("username")
-            or user_metadata.get("full_name", "").replace(" ", "_").lower()
+            or user_metadata.get("full_name", "")
             or email.split("@")[0]
             or supabase_uid[:8]
         )

@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-       migrations.CreateModel(
+        migrations.CreateModel(
             name="UserProfile",
             fields=[
                 (

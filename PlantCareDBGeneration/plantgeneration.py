@@ -251,9 +251,8 @@ def main():
             continue
 
         # Write the result to the disease_static table in Supabase.
-        # upsert will update the row if disease_name already exists, or insert
-        # a new row if it doesn't — so the table can start completely empty.
-        # on_conflict tells Supabase which column to match on for the update.
+        # upsert will update the row if (genus, disease_name) already exists,
+        # or insert a new row if it doesn't.
         try:
             result = (
                 supabase.table("disease_static")
@@ -263,7 +262,7 @@ def main():
                         "genus": genus,
                         "recommended_actions": care_text,
                     },
-                    on_conflict="disease_name",
+                    on_conflict="genus,disease_name",
                 )
                 .execute()
             )

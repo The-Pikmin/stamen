@@ -9,7 +9,6 @@ import google.auth.transport.requests
 import google.oauth2.id_token
 from django.conf import settings
 from .supabase import get_supabase_client
-from .models import PlantImage
 
 # Load common names lookup (scientific name -> common name)
 _COMMON_NAMES_PATH = Path(settings.BASE_DIR).parent / "lotus" / "common_names.json"
@@ -78,9 +77,10 @@ def validate_supabase_url(url: str) -> None:
         raise ValueError("Image URL must be a *.supabase.co domain")
 
 
-# strips and uploads image to supabase
-def upload_plant_image(user, image_file, original_filename: str) -> PlantImage:
+# strips and uploads image to supabase, returns plant_uploads row dict
+def upload_plant_image(user, image_file, original_filename: str) -> dict:
     clean_image = strip_exif(image_file)
+    image_bytes = clean_image.getvalue()
 
     supabase_uid = user.profile.supabase_uid
     unique_filename = f"{uuid.uuid4()}.jpg"
@@ -89,13 +89,27 @@ def upload_plant_image(user, image_file, original_filename: str) -> PlantImage:
     client = get_supabase_client()
     client.storage.from_(settings.SUPABASE_BUCKET).upload(
         path=supabase_path,
-        file=clean_image.getvalue(),
+        file=image_bytes,
         file_options={"content-type": "image/jpeg"},
     )
 
-    plant_image = PlantImage.objects.create(user=user, supabase_path=supabase_path)
+    row = (
+        client.table("plant_uploads")
+        .insert(
+            {
+                "user_id": supabase_uid,
+                "bucket": settings.SUPABASE_BUCKET,
+                "storage_path": supabase_path,
+                "original_name": original_filename,
+                "mime_type": "image/jpeg",
+                "size_bytes": len(image_bytes),
+                "status": "uploaded",
+            }
+        )
+        .execute()
+    )
 
-    return plant_image
+    return row.data[0]
 
 
 # Generates a signed URL for img
@@ -111,13 +125,31 @@ def generate_signed_url(supabase_path: str) -> str:
     return response["signedURL"]
 
 
-def get_image_url(plant_image: PlantImage) -> str:
-    return generate_signed_url(plant_image.supabase_path)
+def get_image_url(supabase_path: str) -> str:
+    return generate_signed_url(supabase_path)
 
 
 def delete_storage_object(supabase_path: str) -> None:
     client = get_supabase_client()
     client.storage.from_(settings.SUPABASE_BUCKET).remove([supabase_path])
+
+
+def get_supabase_uid(request) -> str:
+    """Extract the supabase_uid from the authenticated user's profile."""
+    return request.user.profile.supabase_uid
+
+
+def check_upload_in_use(upload_id: str) -> bool:
+    """Check if any inference references this upload."""
+    client = get_supabase_client()
+    response = (
+        client.table("inferences")
+        .select("id")
+        .eq("upload_id", upload_id)
+        .limit(1)
+        .execute()
+    )
+    return len(response.data) > 0
 
 
 def _get_id_token(audience: str) -> str:

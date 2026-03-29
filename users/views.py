@@ -3,8 +3,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django.conf import settings
-from .models import PlantImage, ScanResult
-from .serializers import PlantImageSerializer, ScanResultSerializer
+from .supabase import get_supabase_client
+from .serializers import serialize_upload, serialize_scan
 from .services import (
     upload_plant_image,
     call_inference,
@@ -12,6 +12,8 @@ from .services import (
     fetch_all_diseases,
     fetch_disease,
     delete_storage_object,
+    get_supabase_uid,
+    check_upload_in_use,
 )
 
 
@@ -118,43 +120,111 @@ def save_scan(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    scan = ScanResult.objects.create(
-        user=request.user,
-        image_url=image_url,
-        supabase_path=data.get("supabase_path", ""),
-        plant_name=plant_name,
-        top_predictions=data.get("top_predictions", []),
-        disease_name=data.get("disease_name", ""),
-        disease_confidence=data.get("disease_confidence"),
-        disease_genus=data.get("disease_genus", ""),
-        all_diseases=data.get("all_diseases", []),
+    supabase_uid = get_supabase_uid(request)
+    supabase_path = data.get("supabase_path", "")
+
+    # Look up upload_id from plant_uploads by supabase_path
+    upload_id = None
+    if supabase_path:
+        client = get_supabase_client()
+        upload_resp = (
+            client.table("plant_uploads")
+            .select("id")
+            .eq("user_id", supabase_uid)
+            .eq("storage_path", supabase_path)
+            .limit(1)
+            .execute()
+        )
+        if upload_resp.data:
+            upload_id = upload_resp.data[0]["id"]
+
+    # Look up disease_id from disease_static
+    disease_id = None
+    disease_name = data.get("disease_name", "")
+    disease_genus = data.get("disease_genus", "")
+    if disease_name and disease_genus:
+        client = get_supabase_client()
+        disease_resp = (
+            client.table("disease_static")
+            .select("disease_id")
+            .ilike("genus", disease_genus)
+            .ilike("disease_name", disease_name)
+            .limit(1)
+            .execute()
+        )
+        if disease_resp.data:
+            disease_id = disease_resp.data[0]["disease_id"]
+
+    client = get_supabase_client()
+    row = (
+        client.table("inferences")
+        .insert(
+            {
+                "upload_id": upload_id,
+                "disease_id": disease_id,
+                "plant_name": plant_name,
+                "image_url": image_url,
+                "supabase_path": supabase_path,
+                "top_predictions": data.get("top_predictions", []),
+                "disease_name": disease_name,
+                "confidence": data.get("disease_confidence"),
+                "disease_genus": disease_genus,
+                "all_diseases": data.get("all_diseases", []),
+            }
+        )
+        .execute()
     )
-    serializer = ScanResultSerializer(scan)
-    return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    return Response(serialize_scan(row.data[0]), status=status.HTTP_201_CREATED)
 
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def scan_history(request):
-    scans = ScanResult.objects.filter(user=request.user)[:50]
-    serializer = ScanResultSerializer(scans, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    supabase_uid = get_supabase_uid(request)
+    client = get_supabase_client()
+
+    response = (
+        client.table("inferences")
+        .select("*, plant_uploads!left(user_id)")
+        .eq("plant_uploads.user_id", supabase_uid)
+        .order("created_at", desc=True)
+        .limit(50)
+        .execute()
+    )
+
+    # Filter out rows where the join didn't match (user_id filter on join)
+    scans = [r for r in response.data if r.get("plant_uploads") is not None]
+    return Response([serialize_scan(s) for s in scans], status=status.HTTP_200_OK)
 
 
 @api_view(["GET", "DELETE"])
 @permission_classes([IsAuthenticated])
 def scan_detail(request, pk):
-    try:
-        scan = ScanResult.objects.get(pk=pk, user=request.user)
-    except ScanResult.DoesNotExist:
+    supabase_uid = get_supabase_uid(request)
+    client = get_supabase_client()
+
+    response = (
+        client.table("inferences")
+        .select("*, plant_uploads!left(user_id)")
+        .eq("id", pk)
+        .execute()
+    )
+
+    if not response.data:
+        return Response({"error": "Scan not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    scan = response.data[0]
+    # Ownership check via the joined plant_uploads.user_id
+    upload_info = scan.get("plant_uploads")
+    if not upload_info or upload_info.get("user_id") != supabase_uid:
         return Response({"error": "Scan not found"}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == "DELETE":
-        scan.delete()
+        client.table("inferences").delete().eq("id", pk).execute()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    serializer = ScanResultSerializer(scan)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    return Response(serialize_scan(scan), status=status.HTTP_200_OK)
 
 
 @api_view(["GET"])
@@ -199,11 +269,10 @@ def upload_image(request):
     image_file = request.FILES["image"]
 
     try:
-        plant_image = upload_plant_image(
+        row = upload_plant_image(
             user=request.user, image_file=image_file, original_filename=image_file.name
         )
-        serializer = PlantImageSerializer(plant_image)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serialize_upload(row), status=status.HTTP_201_CREATED)
     except Exception as e:
         if settings.DEBUG:
             return Response(
@@ -219,21 +288,32 @@ def upload_image(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def image_list(request):
-    images = PlantImage.objects.filter(user=request.user).order_by("-uploaded_at")
+    supabase_uid = get_supabase_uid(request)
+    client = get_supabase_client()
 
     page = int(request.query_params.get("page", 1))
     page_size = int(request.query_params.get("page_size", 24))
     page = max(1, page)
     page_size = max(1, min(page_size, 100))
 
-    total = images.count()
     start = (page - 1) * page_size
-    end = start + page_size
-    serializer = PlantImageSerializer(images[start:end], many=True)
+    end = start + page_size - 1  # Supabase range is inclusive
+
+    response = (
+        client.table("plant_uploads")
+        .select("*", count="exact")
+        .eq("user_id", supabase_uid)
+        .order("created_at", desc=True)
+        .range(start, end)
+        .execute()
+    )
+
+    total = response.count or 0
+    results = [serialize_upload(r) for r in response.data]
 
     return Response(
         {
-            "results": serializer.data,
+            "results": results,
             "total": total,
             "page": page,
             "page_size": page_size,
@@ -246,15 +326,23 @@ def image_list(request):
 @api_view(["DELETE"])
 @permission_classes([IsAuthenticated])
 def image_detail(request, pk):
-    try:
-        image = PlantImage.objects.get(pk=pk, user=request.user)
-    except PlantImage.DoesNotExist:
+    supabase_uid = get_supabase_uid(request)
+    client = get_supabase_client()
+
+    response = (
+        client.table("plant_uploads")
+        .select("*")
+        .eq("id", pk)
+        .eq("user_id", supabase_uid)
+        .execute()
+    )
+
+    if not response.data:
         return Response({"error": "Upload not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    is_in_use = ScanResult.objects.filter(
-        user=request.user, supabase_path=image.supabase_path
-    ).exists()
-    if is_in_use:
+    upload = response.data[0]
+
+    if check_upload_in_use(upload["id"]):
         return Response(
             {
                 "error": (
@@ -265,8 +353,8 @@ def image_detail(request, pk):
         )
 
     try:
-        delete_storage_object(image.supabase_path)
-        image.delete()
+        delete_storage_object(upload["storage_path"])
+        client.table("plant_uploads").delete().eq("id", pk).execute()
         return Response(status=status.HTTP_204_NO_CONTENT)
     except Exception as e:
         if settings.DEBUG:

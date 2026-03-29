@@ -18,7 +18,7 @@ from rest_framework.exceptions import AuthenticationFailed
 
 from users.services import validate_supabase_url, strip_exif
 from users.authentication import SupabaseJWTAuthentication
-from users.models import PlantImage, ScanResult, UserProfile
+from users.models import UserProfile
 
 MOCK_CLOUD_RUN_URL = "https://lotus-model-test-uc.a.run.app"
 
@@ -46,6 +46,34 @@ VALID_IMAGE_URL = (
 VALID_SIGNED_URL = (
     "https://myproject.supabase.co/storage/v1/object/sign/plants/img.jpg?token=abc123"
 )
+
+MOCK_UPLOAD_ROW = {
+    "id": "a1b2c3d4-0000-0000-0000-000000000001",
+    "user_id": "gallery-uid",
+    "bucket": "plant-images",
+    "storage_path": "gallery-uid/upload.jpg",
+    "original_name": "photo.jpg",
+    "mime_type": "image/jpeg",
+    "size_bytes": 1234,
+    "status": "uploaded",
+    "created_at": "2026-03-27T18:00:00+00:00",
+}
+
+MOCK_SCAN_ROW = {
+    "id": 1,
+    "upload_id": "a1b2c3d4-0000-0000-0000-000000000001",
+    "plant_name": "Tomato",
+    "image_url": "https://myproject.supabase.co/storage/v1/img.jpg",
+    "supabase_path": "uid-up/scan.jpg",
+    "top_predictions": [],
+    "disease_name": "Healthy",
+    "disease_id": None,
+    "confidence": None,
+    "disease_genus": "",
+    "all_diseases": [],
+    "created_at": "2026-03-27T18:00:00+00:00",
+    "plant_uploads": {"user_id": "scanner-uid"},
+}
 
 
 # ---------------------------------------------------------------------------
@@ -506,15 +534,12 @@ class UploadImageTests(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("No image", resp.data["error"])
 
+    @patch("users.views.serialize_upload")
     @patch("users.views.upload_plant_image")
-    @patch("users.views.PlantImageSerializer")
-    def test_successful_upload(self, mock_serializer, mock_upload):
-        from users.models import PlantImage
-
-        plant_img = PlantImage(id=1, user=self.user, supabase_path="uid-up/img.jpg")
-        mock_upload.return_value = plant_img
-        mock_serializer.return_value.data = {
-            "id": 1,
+    def test_successful_upload(self, mock_upload, mock_serialize):
+        mock_upload.return_value = MOCK_UPLOAD_ROW
+        mock_serialize.return_value = {
+            "id": MOCK_UPLOAD_ROW["id"],
             "supabase_path": "uid-up/img.jpg",
         }
 
@@ -554,41 +579,118 @@ class UploadImageTests(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
+# ---------------------------------------------------------------------------
+# View tests — scan management (via Supabase client)
+# ---------------------------------------------------------------------------
 class ScanManagementTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.user = User.objects.create_user(username="scanner", email="scan@test.com")
-        self.other_user = User.objects.create_user(
-            username="other-scanner", email="other-scan@test.com"
-        )
+        UserProfile.objects.create(user=self.user, supabase_uid="scanner-uid")
         self.client.force_authenticate(user=self.user)
-        self.scan = ScanResult.objects.create(
-            user=self.user,
-            supabase_path="uid-up/scan.jpg",
-            plant_name="Tomato",
-            top_predictions=[],
-            disease_name="Healthy",
-            all_diseases=[],
+
+    @patch("users.serializers.generate_signed_url", return_value="https://signed/url")
+    @patch("users.views.get_supabase_client")
+    def test_save_scan(self, mock_get_client, _mock_url):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+
+        # Mock upload lookup
+        mock_client.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value.data = [  # noqa: E501
+            {"id": "upload-uuid-1"}
+        ]
+        # Mock disease lookup (no match)
+        mock_client.table.return_value.select.return_value.ilike.return_value.ilike.return_value.limit.return_value.execute.return_value.data = (  # noqa: E501
+            []
+        )
+        # Mock insert
+        inserted_row = {**MOCK_SCAN_ROW, "plant_uploads": {"user_id": "scanner-uid"}}
+        mock_client.table.return_value.insert.return_value.execute.return_value.data = [
+            inserted_row
+        ]
+
+        resp = self.client.post(
+            "/api/scans/",
+            {
+                "plant_name": "Tomato",
+                "image_url": VALID_IMAGE_URL,
+                "supabase_path": "uid-up/scan.jpg",
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(resp.data["plant_name"], "Tomato")
+
+    @patch("users.serializers.generate_signed_url", return_value="https://signed/url")
+    @patch("users.views.get_supabase_client")
+    def test_scan_history(self, mock_get_client, _mock_url):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value.data = [  # noqa: E501
+            MOCK_SCAN_ROW
+        ]
+
+        resp = self.client.get("/api/scans/list/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp.data), 1)
+
+    @patch("users.serializers.generate_signed_url", return_value="https://signed/url")
+    @patch("users.views.get_supabase_client")
+    def test_scan_detail_get(self, mock_get_client, _mock_url):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [  # noqa: E501
+            MOCK_SCAN_ROW
+        ]
+
+        resp = self.client.get("/api/scans/1/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data["plant_name"], "Tomato")
+
+    @patch("users.views.get_supabase_client")
+    def test_delete_scan(self, mock_get_client):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [  # noqa: E501
+            MOCK_SCAN_ROW
+        ]
+        mock_client.table.return_value.delete.return_value.eq.return_value.execute.return_value = (  # noqa: E501
+            MagicMock()
         )
 
-    def test_delete_scan(self):
-        resp = self.client.delete(f"/api/scans/{self.scan.pk}/")
+        resp = self.client.delete("/api/scans/1/")
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertFalse(ScanResult.objects.filter(pk=self.scan.pk).exists())
 
-    def test_delete_other_users_scan_returns_404(self):
-        foreign_scan = ScanResult.objects.create(
-            user=self.other_user,
-            supabase_path="foreign/scan.jpg",
-            plant_name="Rose",
-            top_predictions=[],
-            disease_name="Healthy",
-            all_diseases=[],
+    @patch("users.views.get_supabase_client")
+    def test_delete_other_users_scan_returns_404(self, mock_get_client):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        foreign_scan = {
+            **MOCK_SCAN_ROW,
+            "plant_uploads": {"user_id": "other-uid"},
+        }
+        mock_client.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [  # noqa: E501
+            foreign_scan
+        ]
+
+        resp = self.client.delete("/api/scans/99/")
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+    @patch("users.views.get_supabase_client")
+    def test_scan_not_found(self, mock_get_client):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.table.return_value.select.return_value.eq.return_value.execute.return_value.data = (  # noqa: E501
+            []
         )
-        resp = self.client.delete(f"/api/scans/{foreign_scan.pk}/")
+
+        resp = self.client.get("/api/scans/999/")
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
 
 
+# ---------------------------------------------------------------------------
+# View tests — upload management (via Supabase client)
+# ---------------------------------------------------------------------------
 class UploadManagementTests(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -596,57 +698,73 @@ class UploadManagementTests(TestCase):
             username="gallery",
             email="gallery@test.com",
         )
-        self.other_user = User.objects.create_user(
-            username="other-gallery",
-            email="other-gallery@test.com",
-        )
         UserProfile.objects.create(user=self.user, supabase_uid="gallery-uid")
-        UserProfile.objects.create(
-            user=self.other_user,
-            supabase_uid="other-gallery-uid",
-        )
         self.client.force_authenticate(user=self.user)
-        self.image = PlantImage.objects.create(
-            user=self.user,
-            supabase_path="gallery-uid/upload.jpg",
+
+    @patch("users.serializers.check_upload_in_use", return_value=False)
+    @patch("users.serializers.generate_signed_url", return_value="https://signed/url")
+    @patch("users.views.get_supabase_client")
+    def test_list_uploads(self, mock_get_client, _mock_url, _mock_in_use):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_resp = MagicMock()
+        mock_resp.data = [MOCK_UPLOAD_ROW]
+        mock_resp.count = 1
+        mock_client.table.return_value.select.return_value.eq.return_value.order.return_value.range.return_value.execute.return_value = (  # noqa: E501
+            mock_resp
         )
 
-    @patch(
-        "users.services.get_image_url",
-        return_value="https://signed.example.com/upload",
-    )
-    def test_list_uploads(self, _mock_url):
         resp = self.client.get("/api/images/list/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         results = resp.data["results"]
         self.assertEqual(len(results), 1)
-        self.assertEqual(results[0]["id"], self.image.id)
+        self.assertEqual(results[0]["id"], MOCK_UPLOAD_ROW["id"])
         self.assertFalse(results[0]["in_use"])
 
+    @patch("users.views.check_upload_in_use", return_value=False)
     @patch("users.views.delete_storage_object")
-    def test_delete_unused_upload(self, mock_delete_storage_object):
-        resp = self.client.delete(f"/api/images/{self.image.pk}/")
-        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
-        mock_delete_storage_object.assert_called_once_with("gallery-uid/upload.jpg")
-        self.assertFalse(PlantImage.objects.filter(pk=self.image.pk).exists())
+    @patch("users.views.get_supabase_client")
+    def test_delete_unused_upload(
+        self, mock_get_client, mock_delete_storage, _mock_in_use
+    ):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = [  # noqa: E501
+            MOCK_UPLOAD_ROW
+        ]
 
+        upload_id = MOCK_UPLOAD_ROW["id"]
+        resp = self.client.delete(f"/api/images/{upload_id}/")
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+        mock_delete_storage.assert_called_once_with("gallery-uid/upload.jpg")
+
+    @patch("users.views.check_upload_in_use", return_value=True)
     @patch("users.views.delete_storage_object")
-    def test_delete_upload_in_use_returns_conflict(self, mock_delete_storage_object):
-        ScanResult.objects.create(
-            user=self.user,
-            supabase_path="gallery-uid/upload.jpg",
-            plant_name="Tomato",
-            top_predictions=[],
-            disease_name="Healthy",
-            all_diseases=[],
-        )
-        resp = self.client.delete(f"/api/images/{self.image.pk}/")
+    @patch("users.views.get_supabase_client")
+    def test_delete_upload_in_use_returns_conflict(
+        self, mock_get_client, mock_delete_storage, _mock_in_use
+    ):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = [  # noqa: E501
+            MOCK_UPLOAD_ROW
+        ]
+
+        upload_id = MOCK_UPLOAD_ROW["id"]
+        resp = self.client.delete(f"/api/images/{upload_id}/")
         self.assertEqual(resp.status_code, status.HTTP_409_CONFLICT)
         self.assertIn("Delete that scan first", resp.data["error"])
-        mock_delete_storage_object.assert_not_called()
+        mock_delete_storage.assert_not_called()
 
-    def test_delete_missing_upload_returns_404(self):
-        resp = self.client.delete("/api/images/9999/")
+    @patch("users.views.get_supabase_client")
+    def test_delete_missing_upload_returns_404(self, mock_get_client):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = (  # noqa: E501
+            []
+        )
+
+        resp = self.client.delete("/api/images/00000000-0000-0000-0000-000000000000/")
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
 
 
@@ -684,17 +802,32 @@ class UploadPlantImageServiceTests(TestCase):
 
     @patch("users.services.get_supabase_client")
     def test_upload_creates_record(self, mock_get_client):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
         mock_storage = MagicMock()
-        mock_get_client.return_value.storage.from_.return_value = mock_storage
+        mock_client.storage.from_.return_value = mock_storage
+        mock_client.table.return_value.insert.return_value.execute.return_value.data = [
+            {
+                "id": "new-uuid",
+                "user_id": "svc-uid",
+                "bucket": "plant-images",
+                "storage_path": "svc-uid/test.jpg",
+                "original_name": "photo.png",
+                "mime_type": "image/jpeg",
+                "size_bytes": 100,
+                "status": "uploaded",
+                "created_at": "2026-03-27T18:00:00+00:00",
+            }
+        ]
 
         from users.services import upload_plant_image
 
         image = _make_test_image()
         result = upload_plant_image(self.user, image, "photo.png")
 
-        self.assertIsNotNone(result.pk)
-        self.assertTrue(result.supabase_path.startswith("svc-uid/"))
-        self.assertTrue(result.supabase_path.endswith(".jpg"))
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result["storage_path"].startswith("svc-uid/"))
+        self.assertEqual(result["original_name"], "photo.png")
         mock_storage.upload.assert_called_once()
 
 
@@ -704,11 +837,7 @@ class UploadPlantImageServiceTests(TestCase):
 class GetImageUrlTests(TestCase):
     @patch("users.services.get_supabase_client")
     def test_returns_signed_url(self, mock_get_client):
-        from users.models import PlantImage
         from users.services import get_image_url
-
-        user = User.objects.create_user(username="img_user", email="img@test.com")
-        plant_img = PlantImage.objects.create(user=user, supabase_path="uid/img.jpg")
 
         mock_storage = MagicMock()
         mock_storage.create_signed_url.return_value = {
@@ -716,7 +845,7 @@ class GetImageUrlTests(TestCase):
         }
         mock_get_client.return_value.storage.from_.return_value = mock_storage
 
-        url = get_image_url(plant_img)
+        url = get_image_url("uid/img.jpg")
         self.assertEqual(url, "https://signed.example.com/img")
         mock_storage.create_signed_url.assert_called_once_with(
             path="uid/img.jpg", expires_in=86400

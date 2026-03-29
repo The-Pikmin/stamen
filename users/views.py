@@ -160,6 +160,7 @@ def save_scan(request):
         client.table("inferences")
         .insert(
             {
+                "user_id": supabase_uid,
                 "upload_id": upload_id,
                 "disease_id": disease_id,
                 "plant_name": plant_name,
@@ -186,16 +187,16 @@ def scan_history(request):
 
     response = (
         client.table("inferences")
-        .select("*, plant_uploads!left(user_id)")
-        .eq("plant_uploads.user_id", supabase_uid)
+        .select("*")
+        .eq("user_id", supabase_uid)
         .order("created_at", desc=True)
         .limit(50)
         .execute()
     )
 
-    # Filter out rows where the join didn't match (user_id filter on join)
-    scans = [r for r in response.data if r.get("plant_uploads") is not None]
-    return Response([serialize_scan(s) for s in scans], status=status.HTTP_200_OK)
+    return Response(
+        [serialize_scan(s) for s in response.data], status=status.HTTP_200_OK
+    )
 
 
 @api_view(["GET", "DELETE"])
@@ -206,8 +207,9 @@ def scan_detail(request, pk):
 
     response = (
         client.table("inferences")
-        .select("*, plant_uploads!left(user_id)")
+        .select("*")
         .eq("id", pk)
+        .eq("user_id", supabase_uid)
         .execute()
     )
 
@@ -215,10 +217,6 @@ def scan_detail(request, pk):
         return Response({"error": "Scan not found"}, status=status.HTTP_404_NOT_FOUND)
 
     scan = response.data[0]
-    # Ownership check via the joined plant_uploads.user_id
-    upload_info = scan.get("plant_uploads")
-    if not upload_info or upload_info.get("user_id") != supabase_uid:
-        return Response({"error": "Scan not found"}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == "DELETE":
         client.table("inferences").delete().eq("id", pk).execute()
@@ -342,7 +340,7 @@ def image_detail(request, pk):
 
     upload = response.data[0]
 
-    if check_upload_in_use(upload["id"]):
+    if check_upload_in_use(upload["id"], supabase_uid):
         return Response(
             {
                 "error": (

@@ -16,7 +16,7 @@ def serialize_upload(row: dict) -> dict:
         "supabase_path": row["storage_path"],
         "uploaded_at": row["created_at"],
         "url": generate_signed_url(row["storage_path"]),
-        "in_use": check_upload_in_use(row["id"]),
+        "in_use": check_upload_in_use(row["id"], row["user_id"]),
     }
 
 

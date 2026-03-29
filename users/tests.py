@@ -62,6 +62,7 @@ MOCK_UPLOAD_ROW = {
 MOCK_SCAN_ROW = {
     "id": 1,
     "upload_id": "a1b2c3d4-0000-0000-0000-000000000001",
+    "user_id": "scanner-uid",
     "plant_name": "Tomato",
     "image_url": "https://myproject.supabase.co/storage/v1/img.jpg",
     "supabase_path": "uid-up/scan.jpg",
@@ -72,7 +73,6 @@ MOCK_SCAN_ROW = {
     "disease_genus": "",
     "all_diseases": [],
     "created_at": "2026-03-27T18:00:00+00:00",
-    "plant_uploads": {"user_id": "scanner-uid"},
 }
 
 
@@ -604,9 +604,8 @@ class ScanManagementTests(TestCase):
             []
         )
         # Mock insert
-        inserted_row = {**MOCK_SCAN_ROW, "plant_uploads": {"user_id": "scanner-uid"}}
         mock_client.table.return_value.insert.return_value.execute.return_value.data = [
-            inserted_row
+            MOCK_SCAN_ROW
         ]
 
         resp = self.client.post(
@@ -639,7 +638,7 @@ class ScanManagementTests(TestCase):
     def test_scan_detail_get(self, mock_get_client, _mock_url):
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
-        mock_client.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [  # noqa: E501
+        mock_client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = [  # noqa: E501
             MOCK_SCAN_ROW
         ]
 
@@ -651,7 +650,7 @@ class ScanManagementTests(TestCase):
     def test_delete_scan(self, mock_get_client):
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
-        mock_client.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [  # noqa: E501
+        mock_client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = [  # noqa: E501
             MOCK_SCAN_ROW
         ]
         mock_client.table.return_value.delete.return_value.eq.return_value.execute.return_value = (  # noqa: E501
@@ -665,13 +664,10 @@ class ScanManagementTests(TestCase):
     def test_delete_other_users_scan_returns_404(self, mock_get_client):
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
-        foreign_scan = {
-            **MOCK_SCAN_ROW,
-            "plant_uploads": {"user_id": "other-uid"},
-        }
-        mock_client.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [  # noqa: E501
-            foreign_scan
-        ]
+        # With direct user_id filter, querying another user's scan returns empty
+        mock_client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = (  # noqa: E501
+            []
+        )
 
         resp = self.client.delete("/api/scans/99/")
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
@@ -680,7 +676,7 @@ class ScanManagementTests(TestCase):
     def test_scan_not_found(self, mock_get_client):
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
-        mock_client.table.return_value.select.return_value.eq.return_value.execute.return_value.data = (  # noqa: E501
+        mock_client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = (  # noqa: E501
             []
         )
 

@@ -139,13 +139,14 @@ def get_supabase_uid(request) -> str:
     return request.user.profile.supabase_uid
 
 
-def check_upload_in_use(upload_id: str) -> bool:
-    """Check if any inference references this upload."""
+def check_upload_in_use(upload_id: str, user_id: str) -> bool:
+    """Check if any inference owned by this user references this upload."""
     client = get_supabase_client()
     response = (
         client.table("inferences")
         .select("id")
         .eq("upload_id", upload_id)
+        .eq("user_id", user_id)
         .limit(1)
         .execute()
     )

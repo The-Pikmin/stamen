@@ -14,33 +14,6 @@ from django.db import models
 #         return self.email
 
 
-class PlantImage(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    supabase_path = models.CharField(max_length=500)
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-
-
-class ScanResult(models.Model):
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="scan_results"
-    )
-    plant_image = models.ForeignKey(
-        PlantImage, on_delete=models.SET_NULL, null=True, blank=True
-    )
-    image_url = models.URLField(max_length=1000, blank=True, default="")
-    supabase_path = models.CharField(max_length=500, blank=True, default="")
-    plant_name = models.CharField(max_length=200)
-    top_predictions = models.JSONField(default=list)
-    disease_name = models.CharField(max_length=200, blank=True, default="")
-    disease_confidence = models.FloatField(null=True, blank=True)
-    disease_genus = models.CharField(max_length=100, blank=True, default="")
-    all_diseases = models.JSONField(default=list)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-created_at"]
-
-
 class UserProfile(models.Model):
     # Extends Django User to store Supabase Auth UUID
     # This UUID is used for RLS policies in Supabase

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import PlantImage, ScanResult
+from .services import generate_signed_url, check_upload_in_use
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -9,47 +9,32 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ["id", "username", "email"]
 
 
-class PlantImageSerializer(serializers.ModelSerializer):
-    url = serializers.SerializerMethodField()
-    in_use = serializers.SerializerMethodField()
-
-    class Meta:
-        model = PlantImage
-        fields = ["id", "supabase_path", "uploaded_at", "url", "in_use"]
-        read_only_fields = ["id", "supabase_path", "uploaded_at", "url", "in_use"]
-
-    def get_url(self, obj):
-        from .services import get_image_url
-
-        return get_image_url(obj)
-
-    def get_in_use(self, obj):
-        return ScanResult.objects.filter(
-            user=obj.user, supabase_path=obj.supabase_path
-        ).exists()
+def serialize_upload(row: dict) -> dict:
+    """Build API response dict from a plant_uploads Supabase row."""
+    return {
+        "id": row["id"],
+        "supabase_path": row["storage_path"],
+        "uploaded_at": row["created_at"],
+        "url": generate_signed_url(row["storage_path"]),
+        "in_use": check_upload_in_use(row["id"]),
+    }
 
 
-class ScanResultSerializer(serializers.ModelSerializer):
-    image_url = serializers.SerializerMethodField()
+def serialize_scan(row: dict) -> dict:
+    """Build API response dict from an inferences Supabase row."""
+    image_url = row.get("image_url", "")
+    supabase_path = row.get("supabase_path", "")
+    if supabase_path:
+        image_url = generate_signed_url(supabase_path)
 
-    class Meta:
-        model = ScanResult
-        fields = [
-            "id",
-            "image_url",
-            "plant_name",
-            "top_predictions",
-            "disease_name",
-            "disease_confidence",
-            "disease_genus",
-            "all_diseases",
-            "created_at",
-        ]
-        read_only_fields = fields
-
-    def get_image_url(self, obj):
-        if obj.supabase_path:
-            from .services import generate_signed_url
-
-            return generate_signed_url(obj.supabase_path)
-        return obj.image_url
+    return {
+        "id": row["id"],
+        "image_url": image_url,
+        "plant_name": row.get("plant_name", ""),
+        "top_predictions": row.get("top_predictions", []),
+        "disease_name": row.get("disease_name", ""),
+        "disease_confidence": row.get("confidence"),
+        "disease_genus": row.get("disease_genus", ""),
+        "all_diseases": row.get("all_diseases", []),
+        "created_at": row.get("created_at", ""),
+    }

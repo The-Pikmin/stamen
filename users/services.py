@@ -205,13 +205,18 @@ def get_deleting_upload_expiry() -> str:
 
 def promote_upload_to_retained(upload_id: str) -> bool:
     client = get_supabase_client()
-    response = client.table("plant_uploads").update(
-        {
-            "retention_state": RETAINED_RETENTION_STATE,
-            "expires_at": None,
-            "retained_at": timezone.now().isoformat(),
-        }
-    ).eq("id", upload_id).execute()
+    response = (
+        client.table("plant_uploads")
+        .update(
+            {
+                "retention_state": RETAINED_RETENTION_STATE,
+                "expires_at": None,
+                "retained_at": timezone.now().isoformat(),
+            }
+        )
+        .eq("id", upload_id)
+        .execute()
+    )
     return bool(response.data)
 
 

@@ -536,7 +536,9 @@ class UpdateProfileTests(TestCase):
 class UserSettingsTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.user = User.objects.create_user(username="settings", email="settings@test.com")
+        self.user = User.objects.create_user(
+            username="settings", email="settings@test.com"
+        )
         UserProfile.objects.create(user=self.user, supabase_uid="settings-uid")
         self.auth_payload = {"sub": "settings-uid"}
         self.client.force_authenticate(user=self.user, token=self.auth_payload)

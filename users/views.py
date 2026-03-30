@@ -112,7 +112,10 @@ def update_profile(request):
 
     from django.contrib.auth.models import User
 
-    if username and User.objects.filter(username=username).exclude(pk=request.user.pk).exists():
+    if (
+        username
+        and User.objects.filter(username=username).exclude(pk=request.user.pk).exists()
+    ):
         return Response(
             {"error": "Username already taken"},
             status=status.HTTP_400_BAD_REQUEST,

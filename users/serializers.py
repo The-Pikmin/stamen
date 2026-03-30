@@ -16,7 +16,9 @@ class PrivacySettingsSerializer(serializers.Serializer):
 
 class ProfileUpdateSerializer(serializers.Serializer):
     username = serializers.CharField(required=False, min_length=2, max_length=150)
-    display_name = serializers.CharField(required=False, allow_blank=True, max_length=80)
+    display_name = serializers.CharField(
+        required=False, allow_blank=True, max_length=80
+    )
 
 
 class SettingsUpdateSerializer(serializers.Serializer):

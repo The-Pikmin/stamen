@@ -1,12 +1,55 @@
 from rest_framework import serializers
-from django.contrib.auth.models import User
-from .services import get_signed_image_urls, check_upload_in_use
+from .models import UserProfile
+from .services import get_image_url, get_signed_image_urls, check_upload_in_use
 
 
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ["id", "username", "email"]
+class NotificationSettingsSerializer(serializers.Serializer):
+    enabled = serializers.BooleanField(required=False)
+    scan_reminders = serializers.BooleanField(required=False)
+    care_reminders = serializers.BooleanField(required=False)
+
+
+class PrivacySettingsSerializer(serializers.Serializer):
+    share_data = serializers.BooleanField(required=False)
+    analytics_enabled = serializers.BooleanField(required=False)
+
+
+class ProfileUpdateSerializer(serializers.Serializer):
+    username = serializers.CharField(required=False, min_length=2, max_length=150)
+    display_name = serializers.CharField(required=False, allow_blank=True, max_length=80)
+
+
+class SettingsUpdateSerializer(serializers.Serializer):
+    theme = serializers.ChoiceField(
+        required=False,
+        choices=["light", "dark", "auto"],
+    )
+    notifications = NotificationSettingsSerializer(required=False)
+    privacy = PrivacySettingsSerializer(required=False)
+
+
+def serialize_user_profile(user, profile: UserProfile, supabase_uid: str) -> dict:
+    avatar_url = get_image_url(profile.avatar_path) if profile.avatar_path else ""
+    return {
+        "id": supabase_uid,
+        "username": user.username,
+        "email": user.email,
+        "display_name": profile.display_name or user.username,
+        "avatar_url": avatar_url,
+        "joined_at": profile.created_at.isoformat(),
+        "settings": {
+            "theme": profile.theme_preference,
+            "notifications": {
+                "enabled": profile.notifications_enabled,
+                "scan_reminders": profile.scan_reminders_enabled,
+                "care_reminders": profile.care_reminders_enabled,
+            },
+            "privacy": {
+                "share_data": profile.share_data,
+                "analytics_enabled": profile.analytics_enabled,
+            },
+        },
+    }
 
 
 def serialize_upload(row: dict) -> dict:

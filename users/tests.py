@@ -471,6 +471,8 @@ class GetCurrentUserTests(TestCase):
         self.assertEqual(resp.data["id"], "supabase-uid-viewer")
         self.assertEqual(resp.data["username"], "viewer")
         self.assertEqual(resp.data["email"], "viewer@test.com")
+        self.assertEqual(resp.data["display_name"], "viewer")
+        self.assertEqual(resp.data["settings"]["theme"], "auto")
 
     def test_requires_auth(self):
         resp = self.client.get("/api/me/")
@@ -496,10 +498,20 @@ class UpdateProfileTests(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.username, "newname")
 
-    def test_missing_username_returns_400(self):
+    def test_update_display_name(self):
+        resp = self.client.patch(
+            "/api/me/profile/",
+            {"display_name": "Green Thumb"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data["display_name"], "Green Thumb")
+        self.assertEqual(self.user.profile.display_name, "Green Thumb")
+
+    def test_missing_fields_returns_400(self):
         resp = self.client.patch("/api/me/profile/", {}, format="json")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("username", resp.data["error"])
+        self.assertIn("At least one", resp.data["error"])
 
     def test_duplicate_username_returns_400(self):
         User.objects.create_user(username="taken_name", email="other@test.com")
@@ -519,6 +531,97 @@ class UpdateProfileTests(TestCase):
         self.client.force_authenticate(user=None)
         resp = self.client.patch("/api/me/profile/", {"username": "x"}, format="json")
         self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class UserSettingsTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="settings", email="settings@test.com")
+        UserProfile.objects.create(user=self.user, supabase_uid="settings-uid")
+        self.auth_payload = {"sub": "settings-uid"}
+        self.client.force_authenticate(user=self.user, token=self.auth_payload)
+
+    def test_get_settings(self):
+        resp = self.client.get("/api/me/settings/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data["theme"], "auto")
+        self.assertEqual(resp.data["notifications"]["enabled"], True)
+
+    def test_patch_settings(self):
+        resp = self.client.patch(
+            "/api/me/settings/",
+            {
+                "theme": "dark",
+                "notifications": {
+                    "enabled": False,
+                    "scan_reminders": False,
+                },
+                "privacy": {
+                    "share_data": True,
+                    "analytics_enabled": False,
+                },
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data["theme"], "dark")
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.theme_preference, "dark")
+        self.assertEqual(self.user.profile.notifications_enabled, False)
+        self.assertEqual(self.user.profile.scan_reminders_enabled, False)
+        self.assertEqual(self.user.profile.share_data, True)
+        self.assertEqual(self.user.profile.analytics_enabled, False)
+
+    def test_requires_auth(self):
+        self.client.force_authenticate(user=None)
+        resp = self.client.patch("/api/me/settings/", {"theme": "dark"}, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class UserAvatarTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="avatar", email="avatar@test.com")
+        UserProfile.objects.create(user=self.user, supabase_uid="avatar-uid")
+        self.auth_payload = {"sub": "avatar-uid"}
+        self.client.force_authenticate(user=self.user, token=self.auth_payload)
+
+    @patch(
+        "users.views.serialize_user_profile",
+        return_value={
+            "id": "avatar-uid",
+            "username": "avatar",
+            "email": "avatar@test.com",
+            "display_name": "avatar",
+            "avatar_url": "https://signed/avatar.jpg",
+            "joined_at": "2026-03-29T00:00:00+00:00",
+            "settings": {
+                "theme": "auto",
+                "notifications": {
+                    "enabled": True,
+                    "scan_reminders": True,
+                    "care_reminders": True,
+                },
+                "privacy": {
+                    "share_data": False,
+                    "analytics_enabled": True,
+                },
+            },
+        },
+    )
+    @patch("users.views.upload_profile_avatar")
+    def test_upload_avatar(self, mock_upload_avatar, _mock_serialize_profile):
+        image = _make_test_image()
+        resp = self.client.post("/api/me/avatar/", {"image": image}, format="multipart")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        mock_upload_avatar.assert_called_once()
+        self.assertEqual(resp.data["avatar_url"], "https://signed/avatar.jpg")
+
+    @patch("users.views.delete_profile_avatar")
+    def test_delete_avatar(self, mock_delete_profile_avatar):
+        resp = self.client.delete("/api/me/avatar/")
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+        mock_delete_profile_avatar.assert_called_once_with(self.user, "avatar-uid")
 
 
 # ---------------------------------------------------------------------------

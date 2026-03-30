@@ -24,6 +24,7 @@
 ######################
 *.log
 *.sql
+!sql/2026-03-29_ephemeral_upload_retention.sql
 *.sqlite
 
 # OS generated files #

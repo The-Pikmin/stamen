@@ -4,15 +4,24 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django.conf import settings
 from .supabase import get_supabase_client
-from .serializers import serialize_upload, serialize_scan
+from .serializers import (
+    ProfileUpdateSerializer,
+    SettingsUpdateSerializer,
+    serialize_scan,
+    serialize_upload,
+    serialize_user_profile,
+)
 from .services import (
     upload_plant_image,
+    upload_profile_avatar,
     call_inference,
     enrich_predictions_with_common_names,
     fetch_all_diseases,
     fetch_disease,
     delete_storage_object,
+    delete_profile_avatar,
     get_supabase_uid,
+    get_or_create_user_profile,
     check_upload_in_use,
     EPHEMERAL_RETENTION_STATE,
     DELETING_RETENTION_STATE,
@@ -75,40 +84,139 @@ def predict(request):
 @permission_classes([IsAuthenticated])
 def get_current_user(request):
     user = request.user
-    user_data = {
-        "id": request.auth.get("sub"),
-        "username": user.username,
-        "email": user.email,
-    }
+    supabase_uid = request.auth.get("sub", "")
+    profile = get_or_create_user_profile(user, supabase_uid)
+    user_data = serialize_user_profile(user, profile, supabase_uid)
     return Response(user_data, status=status.HTTP_200_OK)
 
 
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def update_profile(request):
-    """Update the current user's profile (e.g. username)."""
-    username = request.data.get("username")
-    if not username:
+    """Update the current user's profile fields."""
+    serializer = ProfileUpdateSerializer(data=request.data, partial=True)
+    if not serializer.is_valid():
         return Response(
-            {"error": "username is required"}, status=status.HTTP_400_BAD_REQUEST
+            {"error": serializer.errors},
+            status=status.HTTP_400_BAD_REQUEST,
         )
+
+    data = serializer.validated_data
+    if not data:
+        return Response(
+            {"error": "At least one profile field is required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    username = data.get("username")
 
     from django.contrib.auth.models import User
 
-    if User.objects.filter(username=username).exclude(pk=request.user.pk).exists():
+    if (
+        username
+        and User.objects.filter(username=username).exclude(pk=request.user.pk).exists()
+    ):
         return Response(
-            {"error": "Username already taken"}, status=status.HTTP_400_BAD_REQUEST
+            {"error": "Username already taken"},
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
-    request.user.username = username
-    request.user.save(update_fields=["username"])
+    profile = get_or_create_user_profile(request.user, request.auth.get("sub"))
+    user_fields_to_update = []
+    profile_fields_to_update = []
+
+    if username:
+        request.user.username = username
+        user_fields_to_update.append("username")
+
+    if "display_name" in data:
+        profile.display_name = data["display_name"]
+        profile_fields_to_update.extend(["display_name", "updated_at"])
+
+    if user_fields_to_update:
+        request.user.save(update_fields=user_fields_to_update)
+    if profile_fields_to_update:
+        profile.save(update_fields=profile_fields_to_update)
 
     return Response(
-        {
-            "id": request.auth.get("sub"),
-            "username": request.user.username,
-            "email": request.user.email,
-        },
+        serialize_user_profile(request.user, profile, request.auth.get("sub", "")),
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["GET", "PATCH"])
+@permission_classes([IsAuthenticated])
+def user_settings(request):
+    profile = get_or_create_user_profile(request.user, request.auth.get("sub"))
+
+    if request.method == "PATCH":
+        serializer = SettingsUpdateSerializer(data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(
+                {"error": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        data = serializer.validated_data
+        fields_to_update = []
+
+        theme = data.get("theme")
+        if theme is not None:
+            profile.theme_preference = theme
+            fields_to_update.append("theme_preference")
+
+        notifications = data.get("notifications", {})
+        if "enabled" in notifications:
+            profile.notifications_enabled = notifications["enabled"]
+            fields_to_update.append("notifications_enabled")
+        if "scan_reminders" in notifications:
+            profile.scan_reminders_enabled = notifications["scan_reminders"]
+            fields_to_update.append("scan_reminders_enabled")
+        if "care_reminders" in notifications:
+            profile.care_reminders_enabled = notifications["care_reminders"]
+            fields_to_update.append("care_reminders_enabled")
+
+        privacy = data.get("privacy", {})
+        if "share_data" in privacy:
+            profile.share_data = privacy["share_data"]
+            fields_to_update.append("share_data")
+        if "analytics_enabled" in privacy:
+            profile.analytics_enabled = privacy["analytics_enabled"]
+            fields_to_update.append("analytics_enabled")
+
+        if fields_to_update:
+            fields_to_update.append("updated_at")
+            profile.save(update_fields=fields_to_update)
+
+    return Response(
+        serialize_user_profile(request.user, profile, request.auth.get("sub", ""))[
+            "settings"
+        ],
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST", "DELETE"])
+@permission_classes([IsAuthenticated])
+def user_avatar(request):
+    supabase_uid = request.auth.get("sub")
+    profile = get_or_create_user_profile(request.user, supabase_uid)
+
+    if request.method == "DELETE":
+        delete_profile_avatar(request.user, supabase_uid)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    image = request.FILES.get("image")
+    if not image:
+        return Response(
+            {"error": "image is required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    upload_profile_avatar(request.user, image, supabase_uid)
+    profile.refresh_from_db()
+    return Response(
+        serialize_user_profile(request.user, profile, request.auth.get("sub", "")),
         status=status.HTTP_200_OK,
     )
 

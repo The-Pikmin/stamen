@@ -13,6 +13,7 @@ from django.conf import settings
 from django.core.cache import cache
 from django.utils import timezone
 from storage3.types import TransformOptions
+from .models import UserProfile
 from .supabase import get_supabase_client
 
 EPHEMERAL_UPLOAD_TTL = timedelta(hours=24)
@@ -124,6 +125,50 @@ def upload_plant_image(user, image_file, original_filename: str) -> dict:
     )
 
     return row.data[0]
+
+
+def get_or_create_user_profile(user, supabase_uid: str | None = None) -> UserProfile:
+    defaults = {"supabase_uid": supabase_uid} if supabase_uid else {}
+    profile, _ = UserProfile.objects.get_or_create(user=user, defaults=defaults)
+    if supabase_uid and profile.supabase_uid != supabase_uid:
+        profile.supabase_uid = supabase_uid
+        profile.save(update_fields=["supabase_uid"])
+    return profile
+
+
+def upload_profile_avatar(user, image_file, supabase_uid: str | None = None) -> str:
+    clean_image = strip_exif(image_file)
+    image_bytes = clean_image.getvalue()
+    profile = get_or_create_user_profile(user, supabase_uid)
+    if not profile.supabase_uid:
+        raise ValueError("User profile is missing supabase_uid")
+
+    unique_filename = f"{uuid.uuid4()}.jpg"
+    supabase_path = f"avatars/{profile.supabase_uid}/{unique_filename}"
+
+    client = get_supabase_client()
+    client.storage.from_(settings.SUPABASE_BUCKET).upload(
+        path=supabase_path,
+        file=image_bytes,
+        file_options={"content-type": "image/jpeg"},
+    )
+
+    previous_avatar_path = profile.avatar_path
+    profile.avatar_path = supabase_path
+    profile.save(update_fields=["avatar_path", "updated_at"])
+
+    if previous_avatar_path:
+        delete_storage_object(previous_avatar_path)
+
+    return supabase_path
+
+
+def delete_profile_avatar(user, supabase_uid: str | None = None) -> None:
+    profile = get_or_create_user_profile(user, supabase_uid)
+    if profile.avatar_path:
+        delete_storage_object(profile.avatar_path)
+        profile.avatar_path = ""
+        profile.save(update_fields=["avatar_path", "updated_at"])
 
 
 # Generates a signed URL for img

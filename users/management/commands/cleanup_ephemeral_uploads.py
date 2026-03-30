@@ -58,7 +58,8 @@ class Command(BaseCommand):
                 if check_upload_in_use(upload_id, user_id):
                     if dry_run:
                         self.stdout.write(
-                            f"[dry-run] would retain upload {upload_id} because it is referenced"
+                            "[dry-run] would retain upload "
+                            f"{upload_id} because it is referenced"
                         )
                         reset_upload_to_ephemeral(upload_id)
                     else:
@@ -89,7 +90,8 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 "cleanup complete: "
-                f"staged={staged} inspected={inspected} deleted={deleted} retained={retained} "
+                f"staged={staged} inspected={inspected} "
+                f"deleted={deleted} retained={retained} "
                 f"skipped={skipped} failed={failed}"
             )
         )

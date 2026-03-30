@@ -657,8 +657,8 @@ class ScanManagementTests(TestCase):
         mock_client.table.return_value.select.return_value.ilike.return_value.ilike.return_value.limit.return_value.execute.return_value.data = (  # noqa: E501
             []
         )
-        mock_client.table.return_value.insert.return_value.execute.side_effect = RuntimeError(
-            "insert failed"
+        mock_client.table.return_value.insert.return_value.execute.side_effect = (
+            RuntimeError("insert failed")
         )
 
         with self.assertRaises(RuntimeError):
@@ -987,8 +987,15 @@ class GetImageUrlTests(TestCase):
 # Management command tests — cleanup_ephemeral_uploads
 # ---------------------------------------------------------------------------
 class CleanupEphemeralUploadsCommandTests(TestCase):
-    @patch("users.management.commands.cleanup_ephemeral_uploads.get_uploads_ready_for_cleanup")
-    @patch("users.management.commands.cleanup_ephemeral_uploads.mark_upload_as_deleting")
+    @patch(
+        (
+            "users.management.commands.cleanup_ephemeral_uploads."
+            "get_uploads_ready_for_cleanup"
+        )
+    )
+    @patch(
+        "users.management.commands.cleanup_ephemeral_uploads.mark_upload_as_deleting"
+    )
     @patch("users.management.commands.cleanup_ephemeral_uploads.claim_expired_uploads")
     def test_cleanup_stages_expired_ephemeral_uploads(
         self,
@@ -1014,13 +1021,24 @@ class CleanupEphemeralUploadsCommandTests(TestCase):
         mock_mark_deleting.assert_called_once_with("upload-1")
         self.assertIn("staged=1", out.getvalue())
 
-    @patch("users.management.commands.cleanup_ephemeral_uploads.reset_upload_to_ephemeral")
+    @patch(
+        "users.management.commands.cleanup_ephemeral_uploads.reset_upload_to_ephemeral"
+    )
     @patch("users.management.commands.cleanup_ephemeral_uploads.delete_upload_record")
     @patch("users.management.commands.cleanup_ephemeral_uploads.delete_storage_object")
-    @patch("users.management.commands.cleanup_ephemeral_uploads.upload_is_still_deleting")
+    @patch(
+        "users.management.commands.cleanup_ephemeral_uploads.upload_is_still_deleting"
+    )
     @patch("users.management.commands.cleanup_ephemeral_uploads.check_upload_in_use")
-    @patch("users.management.commands.cleanup_ephemeral_uploads.get_uploads_ready_for_cleanup")
-    @patch("users.management.commands.cleanup_ephemeral_uploads.mark_upload_as_deleting")
+    @patch(
+        (
+            "users.management.commands.cleanup_ephemeral_uploads."
+            "get_uploads_ready_for_cleanup"
+        )
+    )
+    @patch(
+        "users.management.commands.cleanup_ephemeral_uploads.mark_upload_as_deleting"
+    )
     @patch("users.management.commands.cleanup_ephemeral_uploads.claim_expired_uploads")
     def test_cleanup_deletes_ready_unreferenced_upload(
         self,
@@ -1055,12 +1073,25 @@ class CleanupEphemeralUploadsCommandTests(TestCase):
         mock_reset.assert_not_called()
         self.assertIn("deleted=1", out.getvalue())
 
-    @patch("users.management.commands.cleanup_ephemeral_uploads.reset_upload_to_ephemeral")
-    @patch("users.management.commands.cleanup_ephemeral_uploads.promote_upload_to_retained")
-    @patch("users.management.commands.cleanup_ephemeral_uploads.upload_is_still_deleting")
+    @patch(
+        "users.management.commands.cleanup_ephemeral_uploads.reset_upload_to_ephemeral"
+    )
+    @patch(
+        "users.management.commands.cleanup_ephemeral_uploads.promote_upload_to_retained"
+    )
+    @patch(
+        "users.management.commands.cleanup_ephemeral_uploads.upload_is_still_deleting"
+    )
     @patch("users.management.commands.cleanup_ephemeral_uploads.check_upload_in_use")
-    @patch("users.management.commands.cleanup_ephemeral_uploads.get_uploads_ready_for_cleanup")
-    @patch("users.management.commands.cleanup_ephemeral_uploads.mark_upload_as_deleting")
+    @patch(
+        (
+            "users.management.commands.cleanup_ephemeral_uploads."
+            "get_uploads_ready_for_cleanup"
+        )
+    )
+    @patch(
+        "users.management.commands.cleanup_ephemeral_uploads.mark_upload_as_deleting"
+    )
     @patch("users.management.commands.cleanup_ephemeral_uploads.claim_expired_uploads")
     def test_cleanup_retains_referenced_upload(
         self,
@@ -1092,13 +1123,24 @@ class CleanupEphemeralUploadsCommandTests(TestCase):
         mock_reset.assert_not_called()
         self.assertIn("retained=1", out.getvalue())
 
-    @patch("users.management.commands.cleanup_ephemeral_uploads.reset_upload_to_ephemeral")
+    @patch(
+        "users.management.commands.cleanup_ephemeral_uploads.reset_upload_to_ephemeral"
+    )
     @patch("users.management.commands.cleanup_ephemeral_uploads.delete_upload_record")
     @patch("users.management.commands.cleanup_ephemeral_uploads.delete_storage_object")
-    @patch("users.management.commands.cleanup_ephemeral_uploads.upload_is_still_deleting")
+    @patch(
+        "users.management.commands.cleanup_ephemeral_uploads.upload_is_still_deleting"
+    )
     @patch("users.management.commands.cleanup_ephemeral_uploads.check_upload_in_use")
-    @patch("users.management.commands.cleanup_ephemeral_uploads.get_uploads_ready_for_cleanup")
-    @patch("users.management.commands.cleanup_ephemeral_uploads.mark_upload_as_deleting")
+    @patch(
+        (
+            "users.management.commands.cleanup_ephemeral_uploads."
+            "get_uploads_ready_for_cleanup"
+        )
+    )
+    @patch(
+        "users.management.commands.cleanup_ephemeral_uploads.mark_upload_as_deleting"
+    )
     @patch("users.management.commands.cleanup_ephemeral_uploads.claim_expired_uploads")
     def test_cleanup_dry_run_does_not_delete(
         self,
@@ -1132,12 +1174,23 @@ class CleanupEphemeralUploadsCommandTests(TestCase):
         mock_reset.assert_called_once_with("upload-3")
         self.assertIn("[dry-run] would delete upload upload-3", out.getvalue())
 
-    @patch("users.management.commands.cleanup_ephemeral_uploads.reset_upload_to_ephemeral")
+    @patch(
+        "users.management.commands.cleanup_ephemeral_uploads.reset_upload_to_ephemeral"
+    )
     @patch("users.management.commands.cleanup_ephemeral_uploads.delete_storage_object")
-    @patch("users.management.commands.cleanup_ephemeral_uploads.upload_is_still_deleting")
+    @patch(
+        "users.management.commands.cleanup_ephemeral_uploads.upload_is_still_deleting"
+    )
     @patch("users.management.commands.cleanup_ephemeral_uploads.check_upload_in_use")
-    @patch("users.management.commands.cleanup_ephemeral_uploads.get_uploads_ready_for_cleanup")
-    @patch("users.management.commands.cleanup_ephemeral_uploads.mark_upload_as_deleting")
+    @patch(
+        (
+            "users.management.commands.cleanup_ephemeral_uploads."
+            "get_uploads_ready_for_cleanup"
+        )
+    )
+    @patch(
+        "users.management.commands.cleanup_ephemeral_uploads.mark_upload_as_deleting"
+    )
     @patch("users.management.commands.cleanup_ephemeral_uploads.claim_expired_uploads")
     def test_cleanup_resets_state_after_failure(
         self,

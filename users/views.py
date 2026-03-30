@@ -14,6 +14,11 @@ from .services import (
     delete_storage_object,
     get_supabase_uid,
     check_upload_in_use,
+    EPHEMERAL_RETENTION_STATE,
+    DELETING_RETENTION_STATE,
+    find_upload_by_path,
+    promote_upload_to_retained,
+    reset_upload_to_ephemeral,
 )
 
 
@@ -125,18 +130,13 @@ def save_scan(request):
 
     # Look up upload_id from plant_uploads by supabase_path
     upload_id = None
+    upload_previous_retention_state = None
     if supabase_path:
-        client = get_supabase_client()
-        upload_resp = (
-            client.table("plant_uploads")
-            .select("id")
-            .eq("user_id", supabase_uid)
-            .eq("storage_path", supabase_path)
-            .limit(1)
-            .execute()
-        )
-        if upload_resp.data:
-            upload_id = upload_resp.data[0]["id"]
+        upload = find_upload_by_path(supabase_uid, supabase_path)
+        if upload:
+            upload_id = upload["id"]
+            upload_previous_retention_state = upload.get("retention_state")
+            promote_upload_to_retained(upload_id)
 
     # Look up disease_id from disease_static
     disease_id = None
@@ -156,25 +156,33 @@ def save_scan(request):
             disease_id = disease_resp.data[0]["disease_id"]
 
     client = get_supabase_client()
-    row = (
-        client.table("inferences")
-        .insert(
-            {
-                "user_id": supabase_uid,
-                "upload_id": upload_id,
-                "disease_id": disease_id,
-                "plant_name": plant_name,
-                "image_url": image_url,
-                "supabase_path": supabase_path,
-                "top_predictions": data.get("top_predictions", []),
-                "disease_name": disease_name,
-                "confidence": data.get("disease_confidence"),
-                "disease_genus": disease_genus,
-                "all_diseases": data.get("all_diseases", []),
-            }
+    try:
+        row = (
+            client.table("inferences")
+            .insert(
+                {
+                    "user_id": supabase_uid,
+                    "upload_id": upload_id,
+                    "disease_id": disease_id,
+                    "plant_name": plant_name,
+                    "image_url": image_url,
+                    "supabase_path": supabase_path,
+                    "top_predictions": data.get("top_predictions", []),
+                    "disease_name": disease_name,
+                    "confidence": data.get("disease_confidence"),
+                    "disease_genus": disease_genus,
+                    "all_diseases": data.get("all_diseases", []),
+                }
+            )
+            .execute()
         )
-        .execute()
-    )
+    except Exception:
+        if upload_id and upload_previous_retention_state in (
+            EPHEMERAL_RETENTION_STATE,
+            DELETING_RETENTION_STATE,
+        ):
+            reset_upload_to_ephemeral(upload_id)
+        raise
 
     return Response(serialize_scan(row.data[0]), status=status.HTTP_201_CREATED)
 

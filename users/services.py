@@ -1,5 +1,7 @@
 from PIL import Image
 from io import BytesIO
+from datetime import timedelta
+import hashlib
 import json
 import uuid
 from pathlib import Path
@@ -8,7 +10,16 @@ import requests
 import google.auth.transport.requests
 import google.oauth2.id_token
 from django.conf import settings
+from django.core.cache import cache
+from django.utils import timezone
+from storage3.types import TransformOptions
 from .supabase import get_supabase_client
+
+EPHEMERAL_UPLOAD_TTL = timedelta(hours=24)
+DELETING_UPLOAD_GRACE_PERIOD = timedelta(minutes=15)
+EPHEMERAL_RETENTION_STATE = "ephemeral"
+RETAINED_RETENTION_STATE = "retained"
+DELETING_RETENTION_STATE = "deleting"
 
 # Load common names lookup (scientific name -> common name)
 _COMMON_NAMES_PATH = Path(settings.BASE_DIR).parent / "lotus" / "common_names.json"
@@ -85,6 +96,7 @@ def upload_plant_image(user, image_file, original_filename: str) -> dict:
     supabase_uid = user.profile.supabase_uid
     unique_filename = f"{uuid.uuid4()}.jpg"
     supabase_path = f"{supabase_uid}/{unique_filename}"
+    expires_at = get_ephemeral_upload_expiry()
 
     client = get_supabase_client()
     client.storage.from_(settings.SUPABASE_BUCKET).upload(
@@ -104,6 +116,8 @@ def upload_plant_image(user, image_file, original_filename: str) -> dict:
                 "mime_type": "image/jpeg",
                 "size_bytes": len(image_bytes),
                 "status": "uploaded",
+                "retention_state": EPHEMERAL_RETENTION_STATE,
+                "expires_at": expires_at,
             }
         )
         .execute()
@@ -114,19 +128,177 @@ def upload_plant_image(user, image_file, original_filename: str) -> dict:
 
 # Generates a signed URL for img
 _SIGNED_URL_EXPIRY = 86400  # 24 hours
+_THUMBNAIL_TRANSFORM: TransformOptions = {
+    "width": 256,
+    "height": 256,
+    "resize": "cover",
+    "quality": 80,
+}
 
 
-def generate_signed_url(supabase_path: str) -> str:
+def _signed_url_cache_key(
+    supabase_path: str, transform: TransformOptions | None = None
+) -> str:
+    cache_signature = json.dumps(
+        {"path": supabase_path, "transform": transform or {}},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    digest = hashlib.sha256(cache_signature.encode("utf-8")).hexdigest()
+    return f"signed-url:{digest}"
+
+
+def _signed_url_payload(
+    supabase_path: str, transform: TransformOptions | None = None
+) -> dict[str, str]:
+    cache_key = _signed_url_cache_key(supabase_path, transform)
+    cached_payload = cache.get(cache_key)
+    if cached_payload:
+        return cached_payload
+
     client = get_supabase_client()
+    options = {"transform": transform} if transform else {}
     response = client.storage.from_(settings.SUPABASE_BUCKET).create_signed_url(
         path=supabase_path,
         expires_in=_SIGNED_URL_EXPIRY,
+        options=options,
     )
-    return response["signedURL"]
+
+    payload = {
+        "url": response["signedURL"],
+        "expires_at": (
+            timezone.now() + timedelta(seconds=_SIGNED_URL_EXPIRY)
+        ).isoformat(),
+    }
+    cache.set(cache_key, payload, timeout=_SIGNED_URL_EXPIRY)
+    return payload
+
+
+def generate_signed_url(
+    supabase_path: str, transform: TransformOptions | None = None
+) -> str:
+    return _signed_url_payload(supabase_path, transform)["url"]
+
+
+def get_signed_image_urls(supabase_path: str) -> dict[str, str]:
+    full_size = _signed_url_payload(supabase_path)
+    thumbnail = _signed_url_payload(supabase_path, _THUMBNAIL_TRANSFORM)
+
+    return {
+        "url": full_size["url"],
+        "thumbnail_url": thumbnail["url"],
+        "expires_at": min(full_size["expires_at"], thumbnail["expires_at"]),
+    }
 
 
 def get_image_url(supabase_path: str) -> str:
-    return generate_signed_url(supabase_path)
+    return _signed_url_payload(supabase_path)["url"]
+
+
+def get_ephemeral_upload_expiry() -> str:
+    return (timezone.now() + EPHEMERAL_UPLOAD_TTL).isoformat()
+
+
+def get_deleting_upload_expiry() -> str:
+    return (timezone.now() + DELETING_UPLOAD_GRACE_PERIOD).isoformat()
+
+
+def promote_upload_to_retained(upload_id: str) -> bool:
+    client = get_supabase_client()
+    response = client.table("plant_uploads").update(
+        {
+            "retention_state": RETAINED_RETENTION_STATE,
+            "expires_at": None,
+            "retained_at": timezone.now().isoformat(),
+        }
+    ).eq("id", upload_id).execute()
+    return bool(response.data)
+
+
+def find_upload_by_path(user_id: str, supabase_path: str) -> dict | None:
+    client = get_supabase_client()
+    response = (
+        client.table("plant_uploads")
+        .select("id, retention_state, expires_at")
+        .eq("user_id", user_id)
+        .eq("storage_path", supabase_path)
+        .limit(1)
+        .execute()
+    )
+    if response.data:
+        return response.data[0]
+    return None
+
+
+def claim_expired_uploads(limit: int) -> list[dict]:
+    client = get_supabase_client()
+    response = (
+        client.table("plant_uploads")
+        .select("id, storage_path, user_id, expires_at, retention_state")
+        .eq("retention_state", EPHEMERAL_RETENTION_STATE)
+        .lte("expires_at", timezone.now().isoformat())
+        .limit(limit)
+        .execute()
+    )
+    return response.data
+
+
+def get_uploads_ready_for_cleanup(limit: int) -> list[dict]:
+    client = get_supabase_client()
+    response = (
+        client.table("plant_uploads")
+        .select("id, storage_path, user_id, expires_at, retention_state")
+        .eq("retention_state", DELETING_RETENTION_STATE)
+        .lte("expires_at", timezone.now().isoformat())
+        .limit(limit)
+        .execute()
+    )
+    return response.data
+
+
+def mark_upload_as_deleting(upload_id: str) -> bool:
+    client = get_supabase_client()
+    response = (
+        client.table("plant_uploads")
+        .update(
+            {
+                "retention_state": DELETING_RETENTION_STATE,
+                "expires_at": get_deleting_upload_expiry(),
+            }
+        )
+        .eq("id", upload_id)
+        .eq("retention_state", EPHEMERAL_RETENTION_STATE)
+        .execute()
+    )
+    return bool(response.data)
+
+
+def upload_is_still_deleting(upload_id: str) -> bool:
+    client = get_supabase_client()
+    response = (
+        client.table("plant_uploads")
+        .select("id")
+        .eq("id", upload_id)
+        .eq("retention_state", DELETING_RETENTION_STATE)
+        .limit(1)
+        .execute()
+    )
+    return bool(response.data)
+
+
+def reset_upload_to_ephemeral(upload_id: str) -> None:
+    client = get_supabase_client()
+    client.table("plant_uploads").update(
+        {
+            "retention_state": EPHEMERAL_RETENTION_STATE,
+            "expires_at": get_ephemeral_upload_expiry(),
+        }
+    ).eq("id", upload_id).execute()
+
+
+def delete_upload_record(upload_id: str) -> None:
+    client = get_supabase_client()
+    client.table("plant_uploads").delete().eq("id", upload_id).execute()
 
 
 def delete_storage_object(supabase_path: str) -> None:

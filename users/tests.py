@@ -7,9 +7,11 @@ Run with: python manage.py test users
 """
 
 from unittest.mock import patch, MagicMock
-from io import BytesIO
+from io import BytesIO, StringIO
 
 from PIL import Image
+from django.core.management import call_command
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient, APIRequestFactory
@@ -588,17 +590,30 @@ class ScanManagementTests(TestCase):
         self.user = User.objects.create_user(username="scanner", email="scan@test.com")
         UserProfile.objects.create(user=self.user, supabase_uid="scanner-uid")
         self.client.force_authenticate(user=self.user)
+        cache.clear()
 
-    @patch("users.serializers.generate_signed_url", return_value="https://signed/url")
+    @patch(
+        "users.serializers.get_signed_image_urls",
+        return_value={
+            "url": "https://signed/url",
+            "thumbnail_url": "https://signed/thumb",
+            "expires_at": "2026-03-30T18:00:00+00:00",
+        },
+    )
+    @patch("users.views.find_upload_by_path")
+    @patch("users.views.promote_upload_to_retained")
     @patch("users.views.get_supabase_client")
-    def test_save_scan(self, mock_get_client, _mock_url):
+    def test_save_scan(
+        self, mock_get_client, mock_promote_upload, mock_find_upload_by_path, _mock_url
+    ):
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
+        mock_find_upload_by_path.return_value = {
+            "id": "upload-uuid-1",
+            "retention_state": "ephemeral",
+            "expires_at": "2026-03-30T18:00:00+00:00",
+        }
 
-        # Mock upload lookup
-        mock_client.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value.data = [  # noqa: E501
-            {"id": "upload-uuid-1"}
-        ]
         # Mock disease lookup (no match)
         mock_client.table.return_value.select.return_value.ilike.return_value.ilike.return_value.limit.return_value.execute.return_value.data = (  # noqa: E501
             []
@@ -619,8 +634,55 @@ class ScanManagementTests(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
         self.assertEqual(resp.data["plant_name"], "Tomato")
+        mock_promote_upload.assert_called_once_with("upload-uuid-1")
 
-    @patch("users.serializers.generate_signed_url", return_value="https://signed/url")
+    @patch("users.views.reset_upload_to_ephemeral")
+    @patch("users.views.promote_upload_to_retained")
+    @patch("users.views.get_supabase_client")
+    @patch("users.views.find_upload_by_path")
+    def test_save_scan_resets_ephemeral_upload_if_insert_fails(
+        self,
+        mock_find_upload_by_path,
+        mock_get_client,
+        mock_promote_upload,
+        mock_reset_upload,
+    ):
+        mock_find_upload_by_path.return_value = {
+            "id": "upload-uuid-2",
+            "retention_state": "ephemeral",
+            "expires_at": "2026-03-30T18:00:00+00:00",
+        }
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.table.return_value.select.return_value.ilike.return_value.ilike.return_value.limit.return_value.execute.return_value.data = (  # noqa: E501
+            []
+        )
+        mock_client.table.return_value.insert.return_value.execute.side_effect = RuntimeError(
+            "insert failed"
+        )
+
+        with self.assertRaises(RuntimeError):
+            self.client.post(
+                "/api/scans/",
+                {
+                    "plant_name": "Tomato",
+                    "image_url": VALID_IMAGE_URL,
+                    "supabase_path": "uid-up/scan.jpg",
+                },
+                format="json",
+            )
+
+        mock_promote_upload.assert_called_once_with("upload-uuid-2")
+        mock_reset_upload.assert_called_once_with("upload-uuid-2")
+
+    @patch(
+        "users.serializers.get_signed_image_urls",
+        return_value={
+            "url": "https://signed/url",
+            "thumbnail_url": "https://signed/thumb",
+            "expires_at": "2026-03-30T18:00:00+00:00",
+        },
+    )
     @patch("users.views.get_supabase_client")
     def test_scan_history(self, mock_get_client, _mock_url):
         mock_client = MagicMock()
@@ -632,8 +694,16 @@ class ScanManagementTests(TestCase):
         resp = self.client.get("/api/scans/list/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(len(resp.data), 1)
+        self.assertEqual(resp.data[0]["thumbnail_url"], "https://signed/thumb")
 
-    @patch("users.serializers.generate_signed_url", return_value="https://signed/url")
+    @patch(
+        "users.serializers.get_signed_image_urls",
+        return_value={
+            "url": "https://signed/url",
+            "thumbnail_url": "https://signed/thumb",
+            "expires_at": "2026-03-30T18:00:00+00:00",
+        },
+    )
     @patch("users.views.get_supabase_client")
     def test_scan_detail_get(self, mock_get_client, _mock_url):
         mock_client = MagicMock()
@@ -645,6 +715,7 @@ class ScanManagementTests(TestCase):
         resp = self.client.get("/api/scans/1/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.data["plant_name"], "Tomato")
+        self.assertEqual(resp.data["thumbnail_url"], "https://signed/thumb")
 
     @patch("users.views.get_supabase_client")
     def test_delete_scan(self, mock_get_client):
@@ -696,9 +767,17 @@ class UploadManagementTests(TestCase):
         )
         UserProfile.objects.create(user=self.user, supabase_uid="gallery-uid")
         self.client.force_authenticate(user=self.user)
+        cache.clear()
 
     @patch("users.serializers.check_upload_in_use", return_value=False)
-    @patch("users.serializers.generate_signed_url", return_value="https://signed/url")
+    @patch(
+        "users.serializers.get_signed_image_urls",
+        return_value={
+            "url": "https://signed/url",
+            "thumbnail_url": "https://signed/thumb",
+            "expires_at": "2026-03-30T18:00:00+00:00",
+        },
+    )
     @patch("users.views.get_supabase_client")
     def test_list_uploads(self, mock_get_client, _mock_url, _mock_in_use):
         mock_client = MagicMock()
@@ -716,6 +795,7 @@ class UploadManagementTests(TestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["id"], MOCK_UPLOAD_ROW["id"])
         self.assertFalse(results[0]["in_use"])
+        self.assertEqual(results[0]["thumbnail_url"], "https://signed/thumb")
 
     @patch("users.views.check_upload_in_use", return_value=False)
     @patch("users.views.delete_storage_object")
@@ -795,6 +875,7 @@ class UploadPlantImageServiceTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="svc_user", email="svc@test.com")
         UserProfile.objects.create(user=self.user, supabase_uid="svc-uid")
+        cache.clear()
 
     @patch("users.services.get_supabase_client")
     def test_upload_creates_record(self, mock_get_client):
@@ -825,6 +906,9 @@ class UploadPlantImageServiceTests(TestCase):
         self.assertTrue(result["storage_path"].startswith("svc-uid/"))
         self.assertEqual(result["original_name"], "photo.png")
         mock_storage.upload.assert_called_once()
+        insert_payload = mock_client.table.return_value.insert.call_args.args[0]
+        self.assertEqual(insert_payload["retention_state"], "ephemeral")
+        self.assertTrue(insert_payload["expires_at"])
 
 
 # ---------------------------------------------------------------------------
@@ -835,6 +919,7 @@ class GetImageUrlTests(TestCase):
     def test_returns_signed_url(self, mock_get_client):
         from users.services import get_image_url
 
+        cache.clear()
         mock_storage = MagicMock()
         mock_storage.create_signed_url.return_value = {
             "signedURL": "https://signed.example.com/img"
@@ -844,8 +929,245 @@ class GetImageUrlTests(TestCase):
         url = get_image_url("uid/img.jpg")
         self.assertEqual(url, "https://signed.example.com/img")
         mock_storage.create_signed_url.assert_called_once_with(
-            path="uid/img.jpg", expires_in=86400
+            path="uid/img.jpg", expires_in=86400, options={}
         )
+
+    @patch("users.services.get_supabase_client")
+    def test_reuses_cached_signed_url(self, mock_get_client):
+        from users.services import get_image_url
+
+        cache.clear()
+        mock_storage = MagicMock()
+        mock_storage.create_signed_url.return_value = {
+            "signedURL": "https://signed.example.com/img"
+        }
+        mock_get_client.return_value.storage.from_.return_value = mock_storage
+
+        first_url = get_image_url("uid/img.jpg")
+        second_url = get_image_url("uid/img.jpg")
+
+        self.assertEqual(first_url, second_url)
+        mock_storage.create_signed_url.assert_called_once()
+
+    @patch("users.services.get_supabase_client")
+    def test_get_signed_image_urls_returns_thumbnail(self, mock_get_client):
+        from users.services import get_signed_image_urls
+
+        cache.clear()
+        mock_storage = MagicMock()
+        mock_storage.create_signed_url.side_effect = [
+            {"signedURL": "https://signed.example.com/full"},
+            {"signedURL": "https://signed.example.com/thumb"},
+        ]
+        mock_get_client.return_value.storage.from_.return_value = mock_storage
+
+        urls = get_signed_image_urls("uid/img.jpg")
+
+        self.assertEqual(urls["url"], "https://signed.example.com/full")
+        self.assertEqual(urls["thumbnail_url"], "https://signed.example.com/thumb")
+        self.assertTrue(urls["expires_at"])
+        mock_storage.create_signed_url.assert_any_call(
+            path="uid/img.jpg", expires_in=86400, options={}
+        )
+        mock_storage.create_signed_url.assert_any_call(
+            path="uid/img.jpg",
+            expires_in=86400,
+            options={
+                "transform": {
+                    "width": 256,
+                    "height": 256,
+                    "resize": "cover",
+                    "quality": 80,
+                }
+            },
+        )
+
+
+# ---------------------------------------------------------------------------
+# Management command tests — cleanup_ephemeral_uploads
+# ---------------------------------------------------------------------------
+class CleanupEphemeralUploadsCommandTests(TestCase):
+    @patch("users.management.commands.cleanup_ephemeral_uploads.get_uploads_ready_for_cleanup")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.mark_upload_as_deleting")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.claim_expired_uploads")
+    def test_cleanup_stages_expired_ephemeral_uploads(
+        self,
+        mock_claim_expired,
+        mock_mark_deleting,
+        mock_ready_for_cleanup,
+    ):
+        mock_claim_expired.return_value = [
+            {
+                "id": "upload-1",
+                "storage_path": "scanner-uid/upload-1.jpg",
+                "user_id": "scanner-uid",
+                "expires_at": "2026-03-29T00:00:00+00:00",
+                "retention_state": "ephemeral",
+            }
+        ]
+        mock_mark_deleting.return_value = True
+        mock_ready_for_cleanup.return_value = []
+
+        out = StringIO()
+        call_command("cleanup_ephemeral_uploads", stdout=out)
+
+        mock_mark_deleting.assert_called_once_with("upload-1")
+        self.assertIn("staged=1", out.getvalue())
+
+    @patch("users.management.commands.cleanup_ephemeral_uploads.reset_upload_to_ephemeral")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.delete_upload_record")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.delete_storage_object")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.upload_is_still_deleting")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.check_upload_in_use")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.get_uploads_ready_for_cleanup")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.mark_upload_as_deleting")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.claim_expired_uploads")
+    def test_cleanup_deletes_ready_unreferenced_upload(
+        self,
+        mock_claim_expired,
+        mock_mark_deleting,
+        mock_ready_for_cleanup,
+        mock_check_in_use,
+        mock_still_deleting,
+        mock_delete_storage,
+        mock_delete_record,
+        mock_reset,
+    ):
+        mock_claim_expired.return_value = []
+        mock_ready_for_cleanup.return_value = [
+            {
+                "id": "upload-1",
+                "storage_path": "scanner-uid/upload-1.jpg",
+                "user_id": "scanner-uid",
+                "expires_at": "2026-03-29T00:00:00+00:00",
+                "retention_state": "deleting",
+            }
+        ]
+        mock_check_in_use.return_value = False
+        mock_still_deleting.return_value = True
+
+        out = StringIO()
+        call_command("cleanup_ephemeral_uploads", stdout=out)
+
+        mock_mark_deleting.assert_not_called()
+        mock_delete_storage.assert_called_once_with("scanner-uid/upload-1.jpg")
+        mock_delete_record.assert_called_once_with("upload-1")
+        mock_reset.assert_not_called()
+        self.assertIn("deleted=1", out.getvalue())
+
+    @patch("users.management.commands.cleanup_ephemeral_uploads.reset_upload_to_ephemeral")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.promote_upload_to_retained")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.upload_is_still_deleting")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.check_upload_in_use")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.get_uploads_ready_for_cleanup")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.mark_upload_as_deleting")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.claim_expired_uploads")
+    def test_cleanup_retains_referenced_upload(
+        self,
+        mock_claim_expired,
+        mock_mark_deleting,
+        mock_ready_for_cleanup,
+        mock_check_in_use,
+        mock_still_deleting,
+        mock_promote_retained,
+        mock_reset,
+    ):
+        mock_claim_expired.return_value = []
+        mock_ready_for_cleanup.return_value = [
+            {
+                "id": "upload-2",
+                "storage_path": "scanner-uid/upload-2.jpg",
+                "user_id": "scanner-uid",
+                "expires_at": "2026-03-29T00:00:00+00:00",
+                "retention_state": "deleting",
+            }
+        ]
+        mock_check_in_use.return_value = True
+        mock_still_deleting.return_value = True
+
+        out = StringIO()
+        call_command("cleanup_ephemeral_uploads", stdout=out)
+
+        mock_promote_retained.assert_called_once_with("upload-2")
+        mock_reset.assert_not_called()
+        self.assertIn("retained=1", out.getvalue())
+
+    @patch("users.management.commands.cleanup_ephemeral_uploads.reset_upload_to_ephemeral")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.delete_upload_record")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.delete_storage_object")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.upload_is_still_deleting")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.check_upload_in_use")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.get_uploads_ready_for_cleanup")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.mark_upload_as_deleting")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.claim_expired_uploads")
+    def test_cleanup_dry_run_does_not_delete(
+        self,
+        mock_claim_expired,
+        mock_mark_deleting,
+        mock_ready_for_cleanup,
+        mock_check_in_use,
+        mock_still_deleting,
+        mock_delete_storage,
+        mock_delete_record,
+        mock_reset,
+    ):
+        mock_claim_expired.return_value = []
+        mock_ready_for_cleanup.return_value = [
+            {
+                "id": "upload-3",
+                "storage_path": "scanner-uid/upload-3.jpg",
+                "user_id": "scanner-uid",
+                "expires_at": "2026-03-29T00:00:00+00:00",
+                "retention_state": "deleting",
+            }
+        ]
+        mock_check_in_use.return_value = False
+        mock_still_deleting.return_value = True
+
+        out = StringIO()
+        call_command("cleanup_ephemeral_uploads", "--dry-run", stdout=out)
+
+        mock_delete_storage.assert_not_called()
+        mock_delete_record.assert_not_called()
+        mock_reset.assert_called_once_with("upload-3")
+        self.assertIn("[dry-run] would delete upload upload-3", out.getvalue())
+
+    @patch("users.management.commands.cleanup_ephemeral_uploads.reset_upload_to_ephemeral")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.delete_storage_object")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.upload_is_still_deleting")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.check_upload_in_use")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.get_uploads_ready_for_cleanup")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.mark_upload_as_deleting")
+    @patch("users.management.commands.cleanup_ephemeral_uploads.claim_expired_uploads")
+    def test_cleanup_resets_state_after_failure(
+        self,
+        mock_claim_expired,
+        mock_mark_deleting,
+        mock_ready_for_cleanup,
+        mock_check_in_use,
+        mock_still_deleting,
+        mock_delete_storage,
+        mock_reset,
+    ):
+        mock_claim_expired.return_value = []
+        mock_ready_for_cleanup.return_value = [
+            {
+                "id": "upload-4",
+                "storage_path": "scanner-uid/upload-4.jpg",
+                "user_id": "scanner-uid",
+                "expires_at": "2026-03-29T00:00:00+00:00",
+                "retention_state": "deleting",
+            }
+        ]
+        mock_check_in_use.return_value = False
+        mock_still_deleting.return_value = True
+        mock_delete_storage.side_effect = RuntimeError("bucket failure")
+
+        err = StringIO()
+        call_command("cleanup_ephemeral_uploads", stderr=err)
+
+        mock_reset.assert_called_once_with("upload-4")
+        self.assertIn("Failed to clean upload upload-4", err.getvalue())
 
 
 # ---------------------------------------------------------------------------

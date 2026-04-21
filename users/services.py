@@ -23,7 +23,7 @@ RETAINED_RETENTION_STATE = "retained"
 DELETING_RETENTION_STATE = "deleting"
 
 # Load common names lookup (scientific name -> common name)
-_COMMON_NAMES_PATH = Path(settings.BASE_DIR).parent / "lotus" / "common_names.json"
+_COMMON_NAMES_PATH = Path(settings.BASE_DIR) / "common_names.json"
 try:
     with open(_COMMON_NAMES_PATH) as _f:
         COMMON_NAMES: dict[str, str] = json.load(_f)
